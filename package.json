@@ -46,8 +46,15 @@
         "serve": "^14.2.4",
         "systeminformation": "^5.27.1",
         "tailwind-merge": "^3.3.0",
-        "vite-plugin-node-polyfills": "^0.23.0",
+        "vite-plugin-node-polyfills": "^0.24.0",
         "ws": "^8.18.2"
+    },
+    "_temp_move_back_to_dependancies": {
+        "openi2c": "^1.0.9",
+        "openi2c-ina226": "github:ExpeditionExploration/openi2c-INA226",
+        "bno08x": "github:ExpeditionExploration/openi2c-BNO08x",
+        "vl53l5cx": "github:ExpeditionExploration/openi2c-VL53L5CX",
+        "opengpio": "^2.0.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.27.0",
