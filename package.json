@@ -28,7 +28,6 @@
         "@react-three/postprocessing": "^3.0.4",
         "@tailwindcss/vite": "^4.1.8",
         "awilix": "^12.0.5",
-        "bno08x": "github:ExpeditionExploration/openi2c-BNO08x",
         "chart.js": "^4.5.0",
         "check-disk-space": "^3.4.0",
         "clsx": "^2.1.1",
@@ -41,9 +40,6 @@
         "lucide-react": "^0.511.0",
         "mathjs": "^14.7.0",
         "mpegts.js": "^1.8.0",
-        "opengpio": "^2.0.0",
-        "openi2c": "^1.0.9",
-        "openi2c-ina226": "github:ExpeditionExploration/openi2c-INA226",
         "react": "^19.1.0",
         "react-chartjs-2": "^5.3.0",
         "react-dom": "^19.1.0",
@@ -51,7 +47,6 @@
         "systeminformation": "^5.27.1",
         "tailwind-merge": "^3.3.0",
         "vite-plugin-node-polyfills": "^0.23.0",
-        "vl53l5cx": "github:ExpeditionExploration/openi2c-VL53L5CX",
         "ws": "^8.18.2"
     },
     "devDependencies": {
