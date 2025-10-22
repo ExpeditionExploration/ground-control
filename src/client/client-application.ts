@@ -30,7 +30,7 @@ export class ClientApplication extends Application {
         await this.moduleLoader.loadModules();
         await this.userInterfaceLoader.init();
 
-        this.connection.init();
+        await this.connection.init();
     }
 
     destroy() {
