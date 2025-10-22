@@ -15,7 +15,8 @@
         "pca9685": {
             "enabled": true,
             // "i2cBus": 1, // RaspberryPi_4B
-            "i2cBus": 4, // OrangePi_5
+            // "i2cBus": 4, // OrangePi_5
+            "i2cBus": 1, // RaspberryPi_5B
             "i2cAddr": "0x40",
             "frequency": 1526,
         },
@@ -102,21 +103,19 @@
         "server": {},
         "client": {}
     },
-    "spatial": {
-        "server": {},
-        "client": {}
-    },
     "imu": {
         "server": {
             "enabled": true,
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
-                "i2cBus": 5, // OrangePi_5
+                // "i2cBus": 5, // OrangePi_5
+                "i2cBus": 2, // RaspberryPi_5B
                 "i2cAddr": "0x4b",
                 "useInterrupts": true,
                 // From opengpio library use device-specific bcm pin names.
                 // "interruptPin": ["RaspberryPi_4B", "GPIO23"],
-                "interruptPin": ["OrangePi_5", "GPIO1_D2"],
+                // "interruptPin": ["OrangePi_5", "GPIO1_D2"],
+                "interruptPin": ["RaspberryPi_5B", "GPIO23"],
             }
         },
         "client": {}
@@ -130,19 +129,21 @@
             "cellsInParallel": 3,
             "ina226": {
                 // "i2cBus": 1, // RaspberryPi_4B
-                "i2cBus": 5, // OrangePi_5
-                "i2cAddr": "0x40",
-                "shuntResistorOhms": 0.1
+                // "i2cBus": 5, // OrangePi_5
+                "i2cBus": 2, // RaspberryPi_5B
+                "i2cAddr": "0x40", // rpi5
+                "shuntResistorOhms": 0.01
             }
         },
         "client": {}
     },
     "tof": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "vl53l5cx": {
                 // "i2cBus": 1, // RaspberryPi_4B
-                "i2cBus": 4, // OrangePi_5
+                // "i2cBus": 4, // OrangePi_5
+                "i2cBus": 1, // RaspberryPi_5B
                 "i2cAddr": "0x29",
                 "rangingFrequency": 5
             }
