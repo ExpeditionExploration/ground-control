@@ -1,7 +1,5 @@
 import { Module } from 'src/module';
 import { ChildProcess, spawn, spawnSync } from 'child_process';
-import { randomBytes } from 'crypto';
-import { readFile } from 'fs/promises';
 
 export class MediaModuleServer extends Module {
     private testStreamProcess: ChildProcess | null = null;
@@ -9,6 +7,10 @@ export class MediaModuleServer extends Module {
     // In case of a missing necessary environment variable or some other
     // unrecoverable error.
     private streamingFailedUnrecoverably = false;
+
+    private roomName = "drone-room";
+    private identity = `drone-${Math.floor(Math.random() * 10000)}`;
+    private token: string | null = null;
 
     async onModuleInit() {
         this.on('takePicture', () => {
@@ -51,19 +53,29 @@ export class MediaModuleServer extends Module {
             }
         });
 
-        this.on('start-livekit-test-stream', () => {
-            this.logger.info('Received request to start LiveKit test stream');
-            this.startLiveKitTestStream();
-        });
+        const token = await this.requestToken();
+        this.token = token;
+        this.startLiveKitTestStream();
     }
 
-    // Commented out and left for future reference
-    // private videoSource =
-    //     process.platform === 'darwin'
-    //         ? 'avfvideosrc device-index=0'
-    //         : process.platform === 'win32'
-    //         ? 'ksvideosrc device-index=0'
-    //         : 'v4l2src device-index=0';
+    async requestToken(): Promise<string | null> {
+        const res = await fetch(`${process.env.TOKEN_SERVER}/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                room: this.roomName,
+                identity: this.identity,
+            }),
+        });
+        if (!res.ok) {
+            this.logger.error('Failed to fetch token:', res.statusText);
+            return null;
+        }
+        const data = await res.json();
+        return data.token || null;
+    }
 
     takePicture(): void {
         // this.logger.info('Taking picture...');
@@ -117,22 +129,15 @@ export class MediaModuleServer extends Module {
         }
 
         const args = [
-            'join-room',
-            '--url',
-            cliUrl,
-            '--api-key',
-            LIVEKIT_API_KEY,
-            '--api-secret',
-            LIVEKIT_API_SECRET,
-            '--room',
-            'mission-control-test',
-            '--identity',
-            'drone-abc123',
-            '--publish-demo',
+            '--token', this.token,
+            '--url', process.env.LIVEKIT_URL ?? '',
+            '--',
+            'v4l2src', 'device=/dev/video0',
+            '!', 'image/jpeg,width=1920,height=1080,framerate=30/1',
+            '!', 'jpegdec',
+            '!', 'videoconvert',
+            '!', 'x264enc', 'tune=zerolatency', 'key-int-max=60', 'bitrate=2500', 'speed-preset=ultrafast',
         ];
-
-        const nixPath = process.env.HOME ? `${process.env.HOME}/.nix-profile/bin` : '';
-        const envPath = [process.env.PATH ?? '', nixPath].filter(Boolean).join(':');
 
         const logArgs = args.map((value, index, array) => {
             const prev = array[index - 1];
@@ -141,27 +146,27 @@ export class MediaModuleServer extends Module {
             }
             return value;
         });
-        this.logger.info('Starting LiveKit test stream with args:', logArgs.join(' '));
-        this.testStreamProcess = spawn('livekit-cli', args, {
+        this.logger.info('Starting LiveKit stream');
+        this.testStreamProcess = spawn('gstreamer-publisher', args, {
             env: {
                 ...process.env,
-                PATH: envPath,
+                PATH: process.env.PATH,
             },
             stdio: 'pipe',
         });
 
         this.testStreamProcess.stdout?.on('data', (data: Buffer) => {
-            this.logger.info(`livekit-cli stdout: ${data.toString()}`);
+            this.logger.info(`gstreamer-publish stdout: ${data.toString()}`);
         });
         this.testStreamProcess.stderr?.on('data', (data: Buffer) => {
-            this.logger.error(`livekit-cli stderr: ${data.toString()}`);
+            this.logger.error(`gstreamer-publish stderr: ${data.toString()}`);
         });
         this.testStreamProcess.on('close', (code: number) => {
-            this.logger.info(`livekit-cli exited with code ${code}`);
+            this.logger.info(`gstreamer-publish exited with code ${code}`);
             this.testStreamProcess = null;
         });
         this.testStreamProcess.on('error', (error: Error) => {
-            this.logger.error('Failed to start livekit-cli:', error);
+            this.logger.error('Failed to start gstreamer-publish:', error);
             this.testStreamProcess = null;
         });
     }

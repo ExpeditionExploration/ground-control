@@ -13,7 +13,7 @@ export class MediaModuleClient extends Module {
     livekitHost: string | null = null;
     livekitInterval: NodeJS.Timeout | null = null;
     private lastTestStreamRequest = 0;
-    private readonly roomName = 'mission-control-test';
+    private readonly roomName = 'drone-room';
 
 
     constructor(deps: ClientModuleDependencies) {
@@ -106,26 +106,6 @@ export class MediaModuleClient extends Module {
         requestUrl();
         this.livekitInterval = setInterval(requestUrl, 3000);
     }
-
-    // Not at use yet
-    // onDataChannelMessage = (message: ReceivedDataMessage<string>) => {
-    //     this.logger.info("Received data channel message:", message);
-    //     switch (message.topic) {
-    //         // Signal drone control messages from here to be.
-    //         case "drone-control":
-    //             this.logger.info("Drone control message:", message.payload);
-    //             // Handle drone control message
-    //             break;
-    //         case "livekit-stream-status":
-    //             if (typeof message.payload === 'string' && message.payload === 'ended') {
-    //                 this.logger.warn('LiveKit stream ended notification received; requesting restart');
-    //                 this.requestTestStreamStart(true);
-    //             }
-    //             break;
-    //         default:
-    //             this.logger.warn("Unknown data channel topic:", message.topic);
-    //     }
-    // }
 
     requestTestStreamStart(force = false) {
         const now = Date.now();
