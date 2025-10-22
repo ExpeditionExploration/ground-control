@@ -116,7 +116,7 @@
                 // "i2cBus": 1, // RaspberryPi_4B
                 // "i2cBus": 5, // OrangePi_5
                 "i2cBus": 2, // RaspberryPi_5B
-                "i2cAddr": "0x40", // rpi5
+                "i2cAddr": "0x40",
                 "shuntResistorOhms": 0.01
             }
         },
