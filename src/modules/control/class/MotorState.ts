@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 import { Logger } from 'src/logger';
-import { PCA9685 } from 'openi2c';
+// import { PCA9685 } from 'openi2c';
 
 export class MotorState extends EventEmitter {
     logger: Logger;
@@ -11,7 +11,7 @@ export class MotorState extends EventEmitter {
     scale: number; // Scale factor for the motor
     power: number = 0; // Power level for the motor, typically between -100 and 100
     protected targetPower: number = 0; // Target power level for the motor, used for smooth transitions
-    protected pwmModule: PCA9685;
+    protected pwmModule: any;
 
     constructor({
         name,
@@ -24,7 +24,7 @@ export class MotorState extends EventEmitter {
     }: {
         name: string;
         logger: Logger;
-        pwmModule?: PCA9685;
+        pwmModule?: any;
         rampSpeed?: number;
         position?: number[];
         orientation?: number[];

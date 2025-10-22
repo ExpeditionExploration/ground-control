@@ -5,11 +5,11 @@ import { ECMMotorState } from './class/ECMMotorState';
 import { Wrench } from './types';
 // import { OrangePi_5 } from 'opengpio';
 import { cross, subtract, pi, sin, cos, multiply, pinv, transpose, round } from 'mathjs';
-import { PCA9685 } from 'openi2c';
+// import { PCA9685 } from 'openi2c';
 
 const isProd = false; // process.env.NODE_ENV === 'production';
 export class ControlModuleServer extends Module {
-    private pwmModule: PCA9685;
+    private pwmModule: any;
     private physicalMotors: { [key: string]: MotorState } = {};
     private virtualMotors: { [key: string]: MotorState } = {};
     private virtualToPhysical: { [physicalKey: string]: { [virtualKey: string]: number } } = {};
@@ -19,14 +19,14 @@ export class ControlModuleServer extends Module {
     }
 
     onModuleInit(): void | Promise<void> {
-        if (!this.pwmModule) {
-            if (this.config.modules.control.server.enabled && this.config.modules.common.pca9685.enabled) {
-                this.pwmModule = new PCA9685(this.config.modules.common.pca9685.i2cBus, parseInt(this.config.modules.common.pca9685.i2cAddr, 16));
-            }
-            this.pwmModule?.init();
-            this.pwmModule?.setFrequency(this.config.modules.common.pca9685.frequency);
-            this.logger.info(`PCA9685 enabled: ${this.config.modules.control.server.enabled && this.config.modules.common.pca9685.enabled}`);
-        }
+        // if (!this.pwmModule) {
+        //     if (this.config.modules.control.server.enabled && this.config.modules.common.pca9685.enabled) {
+        //         this.pwmModule = new PCA9685(this.config.modules.common.pca9685.i2cBus, parseInt(this.config.modules.common.pca9685.i2cAddr, 16));
+        //     }
+        //     this.pwmModule?.init();
+        //     this.pwmModule?.setFrequency(this.config.modules.common.pca9685.frequency);
+        //     this.logger.info(`PCA9685 enabled: ${this.config.modules.control.server.enabled && this.config.modules.common.pca9685.enabled}`);
+        // }
         for (const [name, motor] of Object.entries(this.config.modules.common.motors)) {
             this.physicalMotors[name] = new ECMMotorState({
                 name: `${name} Motor`,
@@ -163,6 +163,8 @@ export class ControlModuleServer extends Module {
                 this.physicalMotors[physicalKey].setPower(sum);
                 this.logger.info(`${this.physicalMotors[physicalKey].name} power set to ${sum}`);
             }
+
+            this.logger.debug(`Wrench command received`, this.physicalMotors);
         });
     }
 }

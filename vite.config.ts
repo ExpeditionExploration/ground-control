@@ -24,6 +24,10 @@ export default defineConfig({
                     __dirname,
                     'src/modules/spatial/window/index.html',
                 ),
+                test: resolve(
+                    __dirname,
+                    'src/modules/test/window/index.html',
+                ),
             },
         },
     },

@@ -1,12 +1,12 @@
-import { Pwm, Output } from 'opengpio';
+// import { Pwm, Output } from 'opengpio';
 import { MotorState } from './MotorState';
 import { Logger } from 'src/logger';
-import { PCA9685 } from 'openi2c';
+// import { PCA9685 } from 'openi2c';
 
 export class ECMMotorState extends MotorState {
-    gpioOutPWM: Pwm | number;
-    gpioOutReverse: Output | number;
-    gpioOutStop: Output | number;
+    gpioOutPWM: any | number;
+    gpioOutReverse: any | number;
+    gpioOutStop: any | number;
     invertPWM: boolean; // Invert the PWM signal, useful for certain motor drivers
     invertPWMWithDirection: boolean; // Invert PWM when direction is reversed
     invertRotationDirection: boolean; // Invert the rotation direction of the motor
@@ -28,10 +28,10 @@ export class ECMMotorState extends MotorState {
     }: {
         name: string;
         logger: Logger;
-        pwmModule?: PCA9685;
-        gpioOutPWM?: Pwm | number;
-        gpioOutReverse?: Output | number;
-        gpioOutStop?: Output | number;
+        pwmModule?: any;
+        gpioOutPWM?: any | number;
+        gpioOutReverse?: any | number;
+        gpioOutStop?: any | number;
         invertPWM?: boolean;
         invertPWMWithDirection?: boolean;
         invertRotationDirection?: boolean;
@@ -60,39 +60,39 @@ export class ECMMotorState extends MotorState {
                     this.power = this.targetPower; // Snap to target if close enough
                 }
                 if (typeof this.gpioOutPWM !== 'undefined') {
-                    let dutyCycle = Math.abs(this.power);
-                    if (this.invertPWM) {
-                        dutyCycle = 1 - dutyCycle;
-                    }
-                    if (this.invertPWMWithDirection && this.power < 0) {
-                        dutyCycle = 1 - dutyCycle;
-                    }
-                    if (this.gpioOutPWM instanceof Pwm) {
-                        this.gpioOutPWM.setDutyCycle(dutyCycle);
-                    }
-                    else {
-                        this.pwmModule?.setDutyCycle(this.gpioOutPWM, dutyCycle);
-                    }
-                    if (typeof this.gpioOutReverse !== 'undefined') {
-                        let reverse = this.power < 0;
-                        if (this.invertRotationDirection) {
-                            reverse = this.power > 0;
-                        }
-                        if (this.gpioOutReverse instanceof Output) {
-                            this.gpioOutReverse.value = reverse;
-                        }
-                        else {
-                            this.pwmModule?.setDutyCycle(this.gpioOutReverse, reverse ? 1 : 0);
-                        }
-                    }
-                    if (typeof this.gpioOutStop !== 'undefined') {
-                        if (this.gpioOutStop instanceof Output) {
-                            this.gpioOutStop.value = this.power != 0;
-                        }
-                        else {
-                            this.pwmModule?.setDutyCycle(this.gpioOutStop, this.power != 0 ? 1 : 0);
-                        }
-                    }
+                    // let dutyCycle = Math.abs(this.power);
+                    // if (this.invertPWM) {
+                    //     dutyCycle = 1 - dutyCycle;
+                    // }
+                    // if (this.invertPWMWithDirection && this.power < 0) {
+                    //     dutyCycle = 1 - dutyCycle;
+                    // }
+                    // if (this.gpioOutPWM instanceof Pwm) {
+                    //     this.gpioOutPWM.setDutyCycle(dutyCycle);
+                    // }
+                    // else {
+                    //     this.pwmModule?.setDutyCycle(this.gpioOutPWM, dutyCycle);
+                    // }
+                    // if (typeof this.gpioOutReverse !== 'undefined') {
+                    //     let reverse = this.power < 0;
+                    //     if (this.invertRotationDirection) {
+                    //         reverse = this.power > 0;
+                    //     }
+                    //     if (this.gpioOutReverse instanceof Output) {
+                    //         this.gpioOutReverse.value = reverse;
+                    //     }
+                    //     else {
+                    //         this.pwmModule?.setDutyCycle(this.gpioOutReverse, reverse ? 1 : 0);
+                    //     }
+                    // }
+                    // if (typeof this.gpioOutStop !== 'undefined') {
+                    //     if (this.gpioOutStop instanceof Output) {
+                    //         this.gpioOutStop.value = this.power != 0;
+                    //     }
+                    //     else {
+                    //         this.pwmModule?.setDutyCycle(this.gpioOutStop, this.power != 0 ? 1 : 0);
+                    //     }
+                    // }
                 }
                 this.emit('setPower', this.power);
             }

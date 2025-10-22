@@ -2,18 +2,20 @@
 import { StatsModuleClient } from './stats/client';
 import { MediaModuleClient } from './media/client';
 // import { AngleModuleClient } from './angle/client';
-// import { ControlModuleClient } from './control/client';
-// import { SpatialModuleClient } from './spatial/client';
+import { ControlModuleClient } from './control/client';
+import { SpatialModuleClient } from './spatial/client';
+import { TestModuleClient } from './test/client';
 // import { BatteryModuleClient } from './battery/client';
 // import { LightsModuleClient } from './lights/client';
 // import { TOFModuleClient } from './tof/client';
 
 export const modules = new Map([
-    // ['spatial', SpatialModuleClient],   
+    ['spatial', SpatialModuleClient],   
     ['stats', StatsModuleClient],
     ['media', MediaModuleClient],
+    ['test', TestModuleClient],
     // ['angle', AngleModuleClient],
-    // ['control', ControlModuleClient],
+    ['control', ControlModuleClient],
     // ['battery', BatteryModuleClient],
     // ['lights', LightsModuleClient],
     // ['tof', TOFModuleClient],

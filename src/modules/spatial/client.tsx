@@ -6,7 +6,6 @@ import { Payload } from 'src/connection';
 import { Orientation, Acceleration } from '../imu/types';
 import { AngleStatus } from './types';
 
-
 export class SpatialModuleClient extends Module {
     userInterface: UserInterface;
     private spatialChannel: BroadcastChannel;

@@ -20,6 +20,7 @@ export const StatsHeaderItem: React.FC<ViewProps<StatsModuleClient>> = ({
             setStats(data);
         });
     }, []);
+
     return (
         <div>
             <div className="grid grid-rows-2 grid-cols-2 gap-1">

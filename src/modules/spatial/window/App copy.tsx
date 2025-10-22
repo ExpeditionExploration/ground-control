@@ -11,7 +11,6 @@ import { Wrench as ControlWrench } from 'src/modules/control/types';
 import { Payload } from 'src/connection';
 import { AngleStatus } from '../types';
 import { TOFArray } from './components/TOFArray';
-import config from '../config.json';
 
 const TEXT_SCALE = 0.15;
 const LINE_HEIGHT = TEXT_SCALE * 1.25;

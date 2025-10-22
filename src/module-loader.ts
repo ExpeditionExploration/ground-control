@@ -44,6 +44,7 @@ export class ModuleLoader {
             // are resolved before the module is initialized
             await new Promise<void>((resolve) => setTimeout(async () => {
                 await instance.onModuleInit();
+                instance.emit('config', instance.config);
                 resolve();
             }, 0))
         }));

@@ -11,6 +11,7 @@ export class Config {
     reconnectTimeout = 5000;
     logger: LogLevel[] | boolean = true; // Set to false to disable logging
     modules = {};
+    constructor(){}
 
     async init() {
         try {
