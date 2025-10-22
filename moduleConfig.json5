@@ -18,55 +18,40 @@
             // "i2cBus": 4, // OrangePi_5
             "i2cBus": 1, // RaspberryPi_5B
             "i2cAddr": "0x40",
-            "frequency": 1526,
+            "frequency": 526,
         },
         "motors": {
-            "Rear": {
-                "gpioOutPWM": 6, // [OrangePi_5.pwm(OrangePi_5.bcm.GPIO1_A3, 1, 500),
+            "Front-Right Wing": {
+                "gpioOutPWM": 6,
                 "gpioOutReverse": 7,
-                "gpioOutStop": 8, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
+                "position": [-0.105422, 0.038843, -0.05303],
+                "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
+            },
+            "Front-Left Wing": {
+                "gpioOutPWM": 4,
+                "gpioOutReverse": 5,
+                "position": [0.105422, 0.038843, -0.05303],
+                "orientation": [0, 0.9961946980917455, 0.08715574274765817], /// [0, cosd(5), sind(5)]
+            },
+            "Back-Right Wing": {
+                "gpioOutPWM": 2,
+                "gpioOutReverse": 3,
+                "position": [-0.105422, 0.038843, -0.24697],
+                "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
+            },
+            "Back-Left Wing": {
+                "gpioOutPWM": 0,
+                "gpioOutReverse": 1,
+                "position": [0.105422, 0.038843, -0.024697],
+                "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
+            },
+            "Rear": {
+                "gpioOutPWM": 8, // [OrangePi_5.pwm(OrangePi_5.bcm.GPIO1_A3, 1, 500),
+                "gpioOutReverse": 9,
+                // "gpioOutStop": 10, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
                 "invertPWM": true,
                 "position": [0.00, 0.00, -0.292303],
                 "orientation": [0, 0, 1], // Right-hand rule (Z forward)
-            },
-            "Rear Transverse": {
-                "gpioOutPWM": 4, // [OrangePi_5.pwm(OrangePi_5.bcm.GPIO1_D1, 1, 500),
-                "gpioOutReverse": 5, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A7),
-                "invertPWM": true,
-                "scale": 1,
-                "position": [0, 0.54, -1.93],
-                "orientation": [1, 0, 0], // Right-hand rule (X left)
-            },
-            "Left Wing Front": {
-                "position": [0.105422, 0.038843, -0.05303],
-                "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [sind(25), cosd(25), 0]
-            },
-            "Left Wing Rear": {
-                "position": [0.105422, 0.038843, -0.024697],
-                "orientation": [-0.13235175009, 0.99120281186, 0], // [-sind(25), cosd(25), 0]
-            },
-            "Right Wing Front": {
-                "position": [-0.105422, 0.038843, -0.05303],
-                "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [sind(25), -cosd(25), 0]
-            },
-            "Right Wing Rear": {
-                "position": [-0.105422, 0.038843, -0.24697],
-                "orientation": [0, 0.9961946980917455, -0.08715574274765817],
-            },
-            "Left Wing": {
-                "gpioOutPWM": 0, // OrangePi_5.pwm(OrangePi_5.bcm.GPIO1_A2, 0, 500),
-                "gpioOutReverse": 1, // OrangePi_5.output(OrangePi_5.bcm.GPIO1_A6),
-                "invertRotationDirection": true,
-                "scale": 1,
-                "position": [0.66, 0.36, -0.49],
-                "orientation": [-0.13235175009, 0.99120281186, 0], // [-sind(25), cosd(25), 0]
-            },
-            "Right Wing": {
-                "gpioOutPWM": 2,
-                "gpioOutReverse": 3,
-                "scale": 1,
-                "position": [-0.66, 0.36, -0.49],
-                "orientation": [-0.13235175009, -0.99120281186, 0], // [-sind(25), -cosd(25), 0]
             },
         }
     },
@@ -158,21 +143,21 @@
                 "rollBillboard": [0, 1.8, 0],
                 "pitchBillboard": [0, -0.5, -1],
                 "yawBillboard": [-1.2, 0.4, -1.5],
-                "leftWingFront": {
-                    "position": [0.105422, 0.038843, -0.05303],
-                    "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [sind(25), cosd(25), 0]
-                },
-                "leftWingRear": {
-                    "position": [0.105422, 0.038843, -0.024697],
-                    "orientation": [-0.13235175009, 0.99120281186, 0], // [-sind(25), cosd(25), 0]
-                },
                 "rightWingFront": {
                     "position": [-0.105422, 0.038843, -0.05303],
-                    "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [sind(25), -cosd(25), 0]
+                    "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
+                },
+                "leftWingFront": {
+                    "position": [0.105422, 0.038843, -0.05303],
+                    "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
                 },
                 "rightWingRear": {
                     "position": [-0.105422, 0.038843, -0.24697],
-                    "orientation": [0, 0.9961946980917455, -0.08715574274765817],
+                    "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
+                },
+                "leftWingRear": {
+                    "position": [0.105422, 0.038843, -0.024697],
+                    "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
                 },
             }
         }
