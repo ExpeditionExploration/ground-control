@@ -124,7 +124,7 @@
     },
     "tof": {
         "server": {
-            "enabled": false,
+            "enabled": true,
             "vl53l5cx": {
                 // "i2cBus": 1, // RaspberryPi_4B
                 // "i2cBus": 4, // OrangePi_5
