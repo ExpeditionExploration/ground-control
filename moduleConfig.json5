@@ -4,11 +4,11 @@
     // General settings that apply to all modules and drone core settings.
     "common": {
         "drone": {
-            "centerOfMass": [-0.013901, 0, -0.99135], // [sway/pitch, heave/yaw, surge/roll] in 3D Viewer
+            "centerOfMass": [0, -1.3901, -9.9135], // [sway/pitch, heave/yaw, surge/roll] in 3D Viewer
             "leds":{
-                "right": [-0.015621, -0.053706, -0.009114],
-                "middle": [0, -0.055562, -0.009277],
-                "left": [0.015621, -0.053706, -0.009114],
+                "right": [-1.5621, -5.3706, -9.114],
+                "middle": [0, -5.5562, -9.277],
+                "left": [1.5621, -5.3706, -9.114],
             },
             "camera": [0, 0, 0],
         },
@@ -24,25 +24,25 @@
             "Front-Right Wing": {
                 "gpioOutPWM": 6,
                 "gpioOutReverse": 7,
-                "position": [-0.105422, 0.038843, -0.05303],
+                "position": [-10.5422, 3.8843, -5.303],
                 "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
             },
             "Front-Left Wing": {
                 "gpioOutPWM": 4,
                 "gpioOutReverse": 5,
-                "position": [0.105422, 0.038843, -0.05303],
+                "position": [10.5422, 3.8843, -5.303],
                 "orientation": [0, 0.9961946980917455, 0.08715574274765817], /// [0, cosd(5), sind(5)]
             },
             "Back-Right Wing": {
                 "gpioOutPWM": 2,
                 "gpioOutReverse": 3,
-                "position": [-0.105422, 0.038843, -0.24697],
+                "position": [-10.5422, 3.8843, -24.697],
                 "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
             },
             "Back-Left Wing": {
                 "gpioOutPWM": 0,
                 "gpioOutReverse": 1,
-                "position": [0.105422, 0.038843, -0.024697],
+                "position": [10.5422, 3.8843, -24.697],
                 "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
             },
             "Rear": {
@@ -50,7 +50,7 @@
                 "gpioOutReverse": 9,
                 // "gpioOutStop": 10, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
                 "invertPWM": true,
-                "position": [0.00, 0.00, -0.292303],
+                "position": [0.00, 0.00, -29.2303],
                 "orientation": [0, 0, 1], // Right-hand rule (Z forward)
             },
         }
@@ -144,19 +144,19 @@
                 "pitchBillboard": [0, -0.5, -1],
                 "yawBillboard": [-1.2, 0.4, -1.5],
                 "rightWingFront": {
-                    "position": [-0.105422, 0.038843, -0.05303],
+                    "position": [-10.5422, 3.8843, -5.303],
                     "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
                 },
                 "leftWingFront": {
-                    "position": [0.105422, 0.038843, -0.05303],
+                    "position": [10.5422, 3.8843, -5.303],
                     "orientation": [0, 0.9961946980917455, 0.08715574274765817], // [0, cosd(5), sind(5)]
                 },
                 "rightWingRear": {
-                    "position": [-0.105422, 0.038843, -0.24697],
+                    "position": [-10.5422, 3.8843, -24.697],
                     "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
                 },
                 "leftWingRear": {
-                    "position": [0.105422, 0.038843, -0.024697],
+                    "position": [10.5422, 3.8843, -24.697],
                     "orientation": [0, 0.9961946980917455, -0.08715574274765817], // [0, cosd(5), -sind(5)]
                 },
             }
