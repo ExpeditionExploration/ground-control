@@ -3,12 +3,17 @@ import react from '@vitejs/plugin-react-swc';
 import { fileURLToPath, URL } from 'url';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+
 
 // https://vitejs.dev/config/
 export default defineConfig({
     ssr: {
         external: true,
     },
+    // define: {
+    //     global: {},
+    // },
     build: {
         emptyOutDir: false,
         sourcemap: true,
@@ -32,7 +37,7 @@ export default defineConfig({
         cors: true,
         origin: '*',
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), nodePolyfills()],
     resolve: {
         alias: [
             {

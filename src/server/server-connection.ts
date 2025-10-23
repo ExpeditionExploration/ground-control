@@ -5,12 +5,19 @@ import handler from 'serve-handler';
 import http, { Server } from 'http';
 import { Broadcaster } from "src/broadcaster";
 import { ServerApplicationDependencies } from "./server";
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import SimplePeer from 'simple-peer';
+import wrtc from 'wrtc';
+
 
 export class ServerConnection extends Connection {
     private readonly config!: Config;
     private readonly broadcaster!: Broadcaster;
     private webSocketServer?: WebSocketServer;
     private server?: Server;
+    private peer?: SimplePeer.Instance;
+    private signal?: Promise<SimplePeer.SignalData>;
 
     constructor(deps: ServerApplicationDependencies) {
         super();
@@ -19,44 +26,59 @@ export class ServerConnection extends Connection {
     }
 
     async init() {
-        this.server = http.createServer((request, response) => {
-            return handler(request, response, {
-                public: process.cwd() // In final deployment, this should be the path to the build directory
-            });
-        });
+        await this.createPeer();
+        await this.createServer();
+        this.broadcaster.on('__transmit__', (payload: Payload) => this.send(payload));
 
-        const ws = new WebSocketServer({
-            server: this.server,
-        });
-        ws.on('connection', (socket) => {
-            socket.on('message', (message) => {
-                try {
-                    const payload = JSON.parse(message.toString()) as Payload;
-                    this.broadcaster.emitLocal(payload);
-                } catch (e) {
-                    console.error('Error parsing message', e);
-                }
-            })
+    }
+
+    async createServer() {
+        const fastify = Fastify({
+            logger: true
+        })
+        await fastify.register(cors, {
+            origin: true
         })
 
-        this.webSocketServer = ws;
+        // Declare a route
+        fastify.post('/offer', async (request) => {
+            const offer = request.body as SimplePeer.SignalData;
+            console.log('Received offer from client', offer);
+            this.peer!.signal(offer);
+            const signal = await this.signal!;
+            return signal;
+        });
 
-        await new Promise<void>((resolve) => this.server?.listen(this.config.port, () => {
-            console.log(`Server started on port ${this.config.port}`);
-            resolve();
-        }));
+        try {
+            await fastify.listen({ port: 16500 })
+            console.log('Fastify server listening on port 16500');
+        } catch (err) {
+            fastify.log.error(err)
+            process.exit(1)
+        }
+    }
 
-        this.broadcaster.on('__transmit__', (payload: Payload) => this.send(payload));
+    async createPeer() {
+        // Server does not create peer connections
+        const peer = new SimplePeer({ wrtc });
+        peer.on('data', data => {
+            // got a data channel message
+            console.log('got a message from peer1: ' + data);
+            peer.send('pong');
+        })
+        this.peer = peer;
+        this.signal = new Promise<SimplePeer.SignalData>((resolve) => {
+            peer.on('signal', data => resolve(data))
+        });
     }
 
     destroy() {
-        this.webSocketServer?.close();
+        this.peer?.destroy();
         this.server?.close();
     }
 
     send(payload: Payload) {
-        this.webSocketServer?.clients.forEach(client => {
-            client.send(JSON.stringify(payload));
-        });
+        if (this.peer?.connected)
+            this.peer?.send(JSON.stringify(payload));
     }
 }

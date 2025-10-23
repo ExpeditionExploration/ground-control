@@ -21,6 +21,7 @@
         "deploy": "npm run build && ./deploy.sh root@192.168.1.105"
     },
     "dependencies": {
+        "@fastify/cors": "^11.1.0",
         "@headlessui/react": "^2.2.4",
         "@livekit/components-react": "^2.9.15",
         "@react-three/drei": "^10.1.2",
@@ -34,6 +35,7 @@
         "clsx": "^2.1.1",
         "colors": "^1.4.0",
         "dotenv": "^17.2.3",
+        "fastify": "^5.6.1",
         "forever": "^4.0.3",
         "gstwebrtc-api": "github:ExpeditionExploration/gstwebrtc-api",
         "json5": "^2.2.3",
@@ -48,10 +50,12 @@
         "react-chartjs-2": "^5.3.0",
         "react-dom": "^19.1.0",
         "serve": "^14.2.4",
+        "simple-peer": "^9.11.1",
         "systeminformation": "^5.27.1",
         "tailwind-merge": "^3.3.0",
         "vite-plugin-node-polyfills": "^0.23.0",
         "vl53l5cx": "github:ExpeditionExploration/openi2c-VL53L5CX",
+        "wrtc": "^0.4.7",
         "ws": "^8.18.2"
     },
     "devDependencies": {
@@ -62,6 +66,7 @@
         "@types/react": "^19.1.6",
         "@types/react-dom": "^19.1.5",
         "@types/serve-handler": "^6.1.4",
+        "@types/simple-peer": "^9.11.8",
         "@types/ws": "^8.18.1",
         "@vitejs/plugin-react-swc": "^3.10.0",
         "autoprefixer": "^10.4.21",
