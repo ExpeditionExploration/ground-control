@@ -10,17 +10,6 @@ export class MediaModuleServer extends Module {
         this.startGo2Rtc();
     }
 
-
-    // stopGo2Rtc() {
-    //     if (this.go2rtcProcess) {
-    //         this.logger.info("Stopping go2rtc process...");
-    //         this.go2rtcProcess.removeAllListeners();
-    //         this.go2rtcProcess.stdout.removeAllListeners();
-    //         this.go2rtcProcess.stderr.removeAllListeners();
-    //         this.go2rtcProcess.kill(0);
-    //         this.go2rtcProcess = null;
-    //     }
-    // }
     startGo2Rtc() {
         this.logger.info("Starting go2rtc process...");
         try {
