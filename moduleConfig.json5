@@ -76,8 +76,15 @@
         "client": {}
     },
     "media": {
-        "server": {},
-        "client": {}
+        // Token server lives at the mission-control-remote repository
+        // Watch out for vscode port forwards if using localhost here
+        "liveKitUrl": "wss://expeditionx-zpuob57u.livekit.cloud",
+        "tokenServer": "http://rpi4.local:3001",
+        "server": {
+            // LiveKit secrets are in the .env file and not here.
+        },
+        "client": {
+        }
     },
     "lights": {
         "server": {
@@ -99,10 +106,6 @@
         "client": {}
     },
     "angle": {
-        "server": {},
-        "client": {}
-    },
-    "spatial": {
         "server": {},
         "client": {}
     },
