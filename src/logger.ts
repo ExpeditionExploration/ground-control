@@ -30,9 +30,8 @@ export class Logger {
         if (logLevel === LogLevel.Warn) logLevelFormatted = logLevelFormatted;
         if (logLevel === LogLevel.Error) logLevelFormatted = logLevelFormatted;
         if (logLevel === LogLevel.Debug) logLevelFormatted = logLevelFormatted;
-        const namespaceFormatted = `${this.namespace}\t`;
 
-        return `${logTimeFormatted} ${logLevelFormatted} ${namespaceFormatted}`;
+        return `${logTimeFormatted} ${logLevelFormatted} ${this.namespace}\t`;
     }
 
     info(...args: any) {
