@@ -20,7 +20,7 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({
                 },
                 body: JSON.stringify({
                     room: "drone-room",
-                    identity: "mission-control-client", 
+                    identity: "the-drone", 
                 }),
             });
             const data = await response.json();
