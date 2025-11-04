@@ -24,7 +24,8 @@ export class ClientConnection extends Connection {
         this.destroy();
 
         await new Promise<void>((resolve) => {
-            this.socket = new WebSocket(`ws://${location.hostname}:${this.config.port}`);
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            this.socket = new WebSocket(`${proto}://${location.hostname}:${this.config.port}`);
             this.socket.onopen = () => {
                 console.log('Connected to server');
                 resolve()

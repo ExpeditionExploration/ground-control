@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'url';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path'
 import { json5Plugin } from 'vite-plugin-json5'
+import fs from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -30,6 +31,11 @@ export default defineConfig({
     },
     server: {
         host: '0.0.0.0',
+        https: {
+            key: fs.readFileSync('ssl/server.key'),
+            cert: fs.readFileSync('ssl/server.crt'),
+            // passphrase: 'your-passphrase',
+        },
         cors: {
             origin: '*',
         },

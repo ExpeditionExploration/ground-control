@@ -52,7 +52,8 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
         const { hostname } = window.location;
         const portSegment = module.config.modules.media.droneStreamPort ?? "1984";
         const pathSegment = module.config.modules.media.droneStreamPath ?? "api/stream.mjpeg?src=camera1";
-        setDroneMjpegStreamUrl(`http://${hostname}:${portSegment}/${pathSegment}`);
+        console.log("Setting drone MJPEG stream URL to:", `http://${hostname}:${portSegment}/${pathSegment}`);
+        setDroneMjpegStreamUrl(`https://${hostname}:${portSegment}/${pathSegment}`);
     }, []);
 
 
@@ -165,6 +166,7 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
                 livekitIdentity: data.identity,
             });
             const announceConnection = async () => {
+                
                 try {
                     const response = await fetch(`${module.config.modules.media.missionControlHost}api/ground-operator/announce`, {
                         method: 'POST',
