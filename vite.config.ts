@@ -30,9 +30,10 @@ export default defineConfig({
     },
     server: {
         host: '0.0.0.0',
-        cors: true,
-        origin: '*',
-        allowedHosts: ['rpi4.local', 'localhost'],
+        cors: {
+            origin: '*',
+        },
+        allowedHosts: ['rpi4.local', 'localhost', 'rpi-82266.local'],
     },
     plugins: [react(), tailwindcss(), json5Plugin()],
     resolve: {

@@ -22,8 +22,8 @@ export class Config {
                 //     throw new Error(`Failed to fetch moduleConfig.json5 (status ${response.status})`);
                 // }
                 // text = await response.text();
-                const { default: moduleConfig } = await import("../moduleConfig.json5");
-                obj = moduleConfig;
+                const { default: moduleConfig } = await import("../moduleConfig.json5?raw");
+                obj = JSON5.parse(moduleConfig);
             } else {
                 const file = path.resolve(process.cwd(), 'moduleConfig.json5');
                 const text = await fs.readFile(file, 'utf8');

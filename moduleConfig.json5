@@ -13,7 +13,7 @@
             "camera": [0, 0, 0],
         },
         "pca9685": {
-            "enabled": true,
+            "enabled": false,
             // "i2cBus": 1, // RaspberryPi_4B
             "i2cBus": 4, // OrangePi_5
             "i2cAddr": "0x40",
@@ -78,8 +78,11 @@
     "media": {
         // Token server lives at the mission-control-remote repository
         // Watch out for vscode port forwards if using localhost here
-        "liveKitUrl": "wss://expeditionx-zpuob57u.livekit.cloud",
-        "tokenServer": "http://rpi4.local:3001",
+        "liveKitUrl": "wss://misison-control-test-7te1qygb.livekit.cloud",
+        "droneStreamPath": "api/stream.mjpeg?src=camera1",
+        "droneStreamPort": "1984",
+        "missionControlHost": "https://mission-control-sigma.vercel.app/",
+        "macAddress": "2c:cf:67:db:b9:15",
         "server": {
             // LiveKit secrets are in the .env file and not here.
         },
@@ -88,7 +91,7 @@
     },
     "lights": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "pca9685": {
                 "leds": {
                     "vis": 13,
@@ -101,7 +104,7 @@
     },
     "control": {
         "server": {
-            "enabled": true,
+            "enabled": false,
         },
         "client": {}
     },
@@ -111,7 +114,7 @@
     },
     "imu": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
                 "i2cBus": 5, // OrangePi_5
@@ -142,7 +145,7 @@
     },
     "tof": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "vl53l5cx": {
                 // "i2cBus": 1, // RaspberryPi_4B
                 "i2cBus": 4, // OrangePi_5
