@@ -21,8 +21,8 @@ export class ServerConnection extends Connection {
 
     async init() {
         const options = {
-            key: fs.readFileSync(this.config.common.websocket.sslKey),
-            cert: fs.readFileSync(this.config.common.websocket.sslCert),
+            key: fs.readFileSync("ssl/server.key"),
+            cert: fs.readFileSync("ssl/server.crt"),
         };
         this.server = https.createServer(options,
             (request, response) => {

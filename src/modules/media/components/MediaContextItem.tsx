@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import {
     ControlBar,
     RoomAudioRenderer,
@@ -10,6 +10,7 @@ import { Room, Track } from 'livekit-client';
 import { useGroundOperatorAnnounce } from './hooks/useGroundOperatorAnnounce';
 import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
+import { MediaModuleProvider, useMediaModule } from '../context/MediaModuleContext';
 
 interface RegisteredDrone {
     id: string;
@@ -19,13 +20,27 @@ interface RegisteredDrone {
     status: string;
 }
 
-export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module}) => {
+export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
+  <MediaModuleProvider
+    value={{
+      module,
+      liveKitUrl: module.config.modules.media.liveKitUrl,
+      missionControlHost: module.config.modules.media.missionControlHost,
+      room: new Room({
+          adaptiveStream: true,
+          dynacast: true,
+      }),
+    }}
+  >
+    <MediaContextItemInternal module={module} />
+  </MediaModuleProvider>
+);
+
+const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => {
     const [drones, setDrones] = useState<RegisteredDrone[]>([]);
     const [selectedDrone, setSelectedDrone] = useState<RegisteredDrone | null>(null);
-    const [roomInstance] = useState<Room>(new Room({
-        adaptiveStream: true,
-        dynacast: true,
-    }));
+    const mediaContext = useMediaModule();
+    const roomInstance = mediaContext.room;
 
     const [status, setStatus] = useState<'listing' | 'connecting' | 'connected' | 'error'>(
         'listing'
