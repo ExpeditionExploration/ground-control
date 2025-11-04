@@ -1,24 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     ControlBar,
-    GridLayout,
-    ParticipantTile,
     RoomAudioRenderer,
     useTracks,
     useLocalParticipant,
     RoomContext,
 } from '@livekit/components-react';
 import { Room, Track } from 'livekit-client';
-import { Radio, Wifi, Video, AlertCircle } from 'lucide-react';
 import { useGroundOperatorAnnounce } from './hooks/useGroundOperatorAnnounce';
 import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
-import { useGroundOperatorConnected } from './hooks/useGroundOperatorConnected';
-import { useGroundOperatorDebug } from './hooks/useGroundOperatorDebug';
-import { useGroundOperatorDisconnect } from './hooks/useGroundOperatorDisconnect';
-import { useGroundOperatorStream } from './hooks/useGroundOperatorStream';
-import { TokenErrorResponse, TokenSuccessResponse, useGroundOperatorToken } from './hooks/useGroundOperatorToken';
-import { useGroundOperatorVideoStream } from './hooks/useGroundOperatorVideoStream';
 
 interface RegisteredDrone {
     id: string;
@@ -40,9 +31,6 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
         'listing'
     );
     const [errorMsg, setErrorMsg] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [droneStreamUrl, setDroneStreamUrl] = useState<string | null>(null);
-    const [missionControlToken, setMissionControlToken] = useState<TokenSuccessResponse | TokenErrorResponse | null>(null);
 
     const [liveKitConnectionData, setLiveKitConnectionData] = useState<{
         token: string;
@@ -76,60 +64,6 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
     } = useGroundOperatorAnnounce({
         missionControlHost: module.config.modules.media.missionControlHost,
     });
-    const {
-        connectedDrones,
-        error: connectedError,
-        isLoading: connectedIsLoading,
-        refresh: connectedRefresh
-    } = useGroundOperatorConnected(module.config.modules.media.missionControlHost);
-    const {
-        error: debugError,
-        isLoading: debugIsLoading,
-        refresh: debugRefresh
-    } = useGroundOperatorDebug(module.config.modules.media.missionControlHost);
-    const {
-        error: disconnectError,
-        isLoading: disconnectIsLoading,
-        disconnect: groundOperatorDisconnect
-    } = useGroundOperatorDisconnect(module.config.modules.media.missionControlHost);
-    const {
-        connectedDrones: streamConnectedDrones,
-        isConnected: streamIsConnected,
-        error: streamError,
-        reconnect: streamReconnect,
-        disconnect: streamDisconnect,
-    } = useGroundOperatorStream({
-        missionControlHost: module.config.modules.media.missionControlHost,
-        enabled: status === 'connected',
-    });
-    const {
-        data: livekitTokenData,
-        error: tokenError,
-        isLoading: tokenIsLoading,
-        requestToken
-    } = useGroundOperatorToken({
-        missionControlHost: module.config.modules.media.missionControlHost,
-    });
-    const {
-        data: videoStreamData,
-        error: videoStreamError,
-        isLoading: videoStreamIsLoading,
-    } = useGroundOperatorVideoStream({
-        missionControlHost: module.config.modules.media.missionControlHost,
-    });
-
-    // Request token
-    useEffect(() => {
-        if (!selectedDrone) return;
-        const tok = async () => {
-            const res = await requestToken({ macAddress: selectedDrone.macAddress });
-            if (res.ok) {
-                console.log('Token received:', res);
-                setMissionControlToken(res.data!);
-            }
-        };
-        requestToken({ macAddress: selectedDrone.macAddress });
-    }, [selectedDrone]);
 
     // 🔄 Fetch registered drones (no auth, shows all)
     useEffect(() => {
@@ -159,45 +93,6 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
             )[0] || null);
         }
     }, [drones]);
-
-
-    // 🔄 Fetch selected drone stream address.
-    // useEffect(() => {
-    //     const videoReq = (action: string) => fetch(`${module.config.modules.media.missionControlHost}api/ground-operator/stream`, {
-    //         method: 'GET',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         // body: JSON.stringify({
-    //         //     mac: selectedDrone!.macAddress,
-    //         //     action: action,
-    //         // })
-    //     });
-
-    //     const updateDroneVideoUrl = async () => {
-    //         if (!selectedDrone) {
-    //             setDroneStreamUrl(null);
-    //             return;
-    //         }
-    //         const videoResp = await videoReq('start');
-    //         const responseData = await videoResp.json();
-    //         console.log('🚀 Video Stream Response:', responseData);
-    //         setDroneStreamUrl(responseData.url);
-    //     };
-    //     updateDroneVideoUrl();
-
-    //     return () => {
-    //             if (!selectedDrone) return;
-
-    //             const videoResp = videoReq('stop')
-    //             .then(res => res.json())
-    //             .then(responseData => {
-    //                 console.log('🚀 Video Stream Stopped:', responseData);
-    //             })
-    //             .catch(error => {
-    //                 console.error('❌ Failed to stop video stream:', error);
-    //             });
-    //     };
-    // }, [selectedDrone]);
-
 
     // 🧹 Cleanup on unmount - disconnect if still connected
     useEffect(() => {
@@ -238,36 +133,6 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [selectedDrone, roomInstance]);
-
-    // Request LiveKit token
-    // useEffect(() => {
-    //     if (!selectedDrone) return;
-    //     const tok = async () => {
-    //         const resp = await fetch(`${module.config.modules.media.missionControlHost}api/ground-operator/token`, {
-    //             method: 'POST',
-    //             headers: { 'Content-Type': 'application/json' },
-    //             body: JSON.stringify({ macAddress: selectedDrone.macAddress }),
-    //         });
-
-    //         if (!resp.ok) {
-    //             const error = await resp.json();
-    //             throw new Error(error.error || 'Failed to get token');
-    //         }
-
-    //         const data = await resp.json();
-    //         console.log("LiveKit token:",  data);
-    //         setLiveKitConnectionData(data.token);
-    //     };
-    //     if (selectedDrone) {
-    //         tok();
-    //     }
-    // }, [selectedDrone]);
-
-
-    useEffect(() => {
-        if (!selectedDrone) return;
-        handleConnect(selectedDrone!);
-    }, [selectedDrone]);
 
     const handleConnect = async (drone: RegisteredDrone) => {
         try {
@@ -374,20 +239,17 @@ export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({module
         setStatus('listing');
     };
 
-    // 🔍 Filter drones based on search term
-    const filteredDrones = drones.filter(
-        (drone) =>
-            drone.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            drone.macAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            drone.model.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    useEffect(() => {
+        if (!selectedDrone) return;
+        handleConnect(selectedDrone!);
+        return () => {handleDisconnect()};
+    }, [selectedDrone]);
 
     // ✅ Connected state - Streaming video
     return (
         <RoomContext.Provider value={roomInstance}>
             <div className="h-full w-full cover">
                 {/* Video Feed */}
-                {/* <GroundOperatorVideoFeed droneStreamUrl={droneStreamUrl ?? undefined} /> */}
                 <DroneVideoFeed
                     droneVideoUrl={droneMjpegStreamUrl ?? undefined}
                     connData={liveKitConnectionData} />
@@ -455,7 +317,6 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
         };
     }, [canvasRef.current]);
 
-
     return (
         <div className="h-full flex flex-col">
             {/* Canvas to stream from */}
@@ -466,77 +327,3 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
         </div>
     );
 }
-
-//             {/* Local camera preview info */}
-//             <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg">
-//                 <p className="text-sm text-white flex items-center gap-2">
-//                     <Video className="h-4 w-4 text-green-400" />
-//                     Publishing: {localParticipant?.identity}
-//                 </p>
-//                 <p className="text-xs text-slate-300 mt-1">
-//                     Participants in room: {tracks.length}
-//                 </p>
-//             </div>
-
-//             <GridLayout
-//                 tracks={tracks}
-//                 style={{ height: 'calc(100vh - 80px - var(--lk-control-bar-height))' }}
-//             >
-//                 <ParticipantTile />
-//             </GridLayout>
-//         </div>
-//     );
-// }
-
-
-
-
-
-
-
-// import { ViewProps } from 'src/client/user-interface';
-// import { type MediaModuleClient } from '../client';
-// import { LiveKitRoom } from '@livekit/components-react';
-// import { LocalParticipantPublisher } from './LocalParticipantPublisher';
-// import { useState, useEffect } from 'react';
-
-// export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({
-//     module,
-// }) => {
-//     // <img src={`${location.protocol}//${location.hostname}:1984/api/stream.mjpeg?src=camera1`} className='w-full h-full object-cover'/> 
-//     const [token, setToken] = useState<string | null>(null);
-
-//     useEffect(() => {
-//         const fetchToken = async () => {
-//             module.logger.info(`Fetching LiveKit token from token server from ${module.config.modules.media.tokenServer}/token`);
-//             const response = await fetch(`${module.config.modules.media.tokenServer}/token`, {
-//                 method: 'POST',
-//                 headers: {
-//                     'Content-Type': 'application/json',
-//                 },
-//                 body: JSON.stringify({
-//                     room: "drone-room",
-//                     identity: "the-drone", 
-//                 }),
-//             });
-//             const data = await response.json();
-//             if (response.ok) {
-//                 module.logger.info('Successfully fetched LiveKit token. Storing it in working memory.');
-//                 setToken(data.token);
-//             } else {
-//                 module.logger.error('Failed to fetch LiveKit token:', data);
-//             }
-//         };
-
-//         fetchToken();
-//     }, []);
-
-//     return (
-//         <LiveKitRoom
-//             token={token}
-//             serverUrl={module.config.modules.media.liveKitUrl}
-//             connect={Boolean(token && module.config.modules.media.liveKitUrl)}>
-//                 <LocalParticipantPublisher />
-//         </LiveKitRoom>
-//     );
-// };
