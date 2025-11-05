@@ -2,11 +2,23 @@
 // Holds shared mission-control data + LiveKit helpers for media components.
 import { createContext, useContext } from 'react';
 import type { MediaModuleClient } from '../client';
+import { Room } from 'livekit-client';
+
+export type MediaWebcamControls = {
+  webcamEnabled: boolean;
+  setWebcamEnabled?: (value: boolean) => void;
+  micMuted: boolean;
+  setMicMuted?: (value: boolean) => void;
+  showRemote: boolean;
+  setShowRemote?: (value: boolean) => void;
+};
 
 export type MediaContextValue = {
   module: MediaModuleClient;
   liveKitUrl: string;
   missionControlHost: string;
+  room: Room;
+  webcamControls?: MediaWebcamControls;
 };
 
 const MediaModuleContext = createContext<MediaContextValue | undefined>(undefined);

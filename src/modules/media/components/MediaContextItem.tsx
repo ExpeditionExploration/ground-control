@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     ControlBar,
     RoomAudioRenderer,
@@ -6,11 +6,11 @@ import {
     useLocalParticipant,
     RoomContext,
 } from '@livekit/components-react';
-import { Room, Track } from 'livekit-client';
+import { Track } from 'livekit-client';
 import { useGroundOperatorAnnounce } from './hooks/useGroundOperatorAnnounce';
 import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
-import { MediaModuleProvider, useMediaModule } from '../context/MediaModuleContext';
+import { useMediaModule } from '../context/MediaModuleContext';
 
 interface RegisteredDrone {
     id: string;
@@ -21,22 +21,11 @@ interface RegisteredDrone {
 }
 
 export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
-  <MediaModuleProvider
-    value={{
-      module,
-      liveKitUrl: module.config.modules.media.liveKitUrl,
-      missionControlHost: module.config.modules.media.missionControlHost,
-      room: new Room({
-          adaptiveStream: true,
-          dynacast: true,
-      }),
-    }}
-  >
-    <MediaContextItemInternal module={module} />
-  </MediaModuleProvider>
+        <MediaContextItemInternal module={module} />
 );
 
 const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => {
+    const mediaConfig = module.mediaConfig ?? {};
     const [drones, setDrones] = useState<RegisteredDrone[]>([]);
     const [selectedDrone, setSelectedDrone] = useState<RegisteredDrone | null>(null);
     const mediaContext = useMediaModule();
@@ -65,8 +54,8 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             return;
         }
         const { hostname } = window.location;
-        const portSegment = module.config.modules.media.droneStreamPort ?? "1984";
-        const pathSegment = module.config.modules.media.droneStreamPath ?? "api/stream.mjpeg?src=camera1";
+        const portSegment = mediaConfig.droneStreamPort ?? '1984';
+        const pathSegment = mediaConfig.droneStreamPath ?? 'api/stream.mjpeg?src=camera1';
         console.log("Setting drone MJPEG stream URL to:", `http://${hostname}:${portSegment}/${pathSegment}`);
         setDroneMjpegStreamUrl(`https://${hostname}:${portSegment}/${pathSegment}`);
     }, []);
@@ -78,7 +67,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         error: announceError,
         isLoading: announceIsLoading
     } = useGroundOperatorAnnounce({
-        missionControlHost: module.config.modules.media.missionControlHost,
+        missionControlHost: mediaConfig.missionControlHost,
     });
 
     // 🔄 Fetch registered drones (no auth, shows all)
@@ -87,8 +76,8 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             try {
                 // ⚠️ For MVP: Fetch all drones without auth
                 // TODO: Add proper authentication in production
-                console.log("missionControlHost", module.config.modules.media.missionControlHost);
-                const resp = await fetch(`${module.config.modules.media.missionControlHost}api/drones/all`);
+                console.log("missionControlHost", mediaConfig.missionControlHost);
+                const resp = await fetch(`${mediaConfig.missionControlHost}api/drones/all`);
                 if (resp.ok) {
                     const data = await resp.json();
                     setDrones(data.drones || []);
@@ -105,7 +94,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
     useEffect(() => {
         if (drones.length > 0) {
             setSelectedDrone(drones.filter(
-                d => d.macAddress.toLowerCase() === module.config.modules.media.macAddress.toLowerCase()
+                d => d.macAddress.toLowerCase() === (mediaConfig.macAddress ?? '').toLowerCase()
             )[0] || null);
         }
     }, [drones]);
@@ -115,7 +104,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         return () => {
             if (selectedDrone && roomInstance.state === 'connected') {
                 // 📡 Notify server about disconnection
-                fetch(`${module.config.modules.media.client.missionControlHost}api/ground-operator/disconnect`, {
+                fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -140,7 +129,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
                 });
                 
                 // ⚠️ Use sendBeacon for reliable disconnect on page close
-                navigator.sendBeacon(`${module.config.modules.media.client.missionControlHost}api/ground-operator/disconnect`, data);
+                navigator.sendBeacon(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, data);
                 
                 roomInstance.disconnect();
             }
@@ -157,7 +146,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             setSelectedDrone(drone);
 
             // 🎫 Request LiveKit token from server
-            const resp = await fetch(`${module.config.modules.media.missionControlHost}api/ground-operator/token`, {
+            const resp = await fetch(`${mediaConfig.missionControlHost}api/ground-operator/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ macAddress: drone.macAddress }),
@@ -173,17 +162,17 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             setLiveKitConnectionData(data.token);
 
             // 🔌 Connect to LiveKit room
-            await roomInstance.connect(module.config.modules.media.liveKitUrl, data.token);
+            await roomInstance.connect(mediaConfig.liveKitUrl, data.token);
 
             // 📡 Announce drone connection (with heartbeat)
             await announce({
-                macAddress: module.config.modules.media.macAddress,
+                macAddress: mediaConfig.macAddress,
                 livekitIdentity: data.identity,
             });
             const announceConnection = async () => {
                 
                 try {
-                    const response = await fetch(`${module.config.modules.media.missionControlHost}api/ground-operator/announce`, {
+                    const response = await fetch(`${mediaConfig.missionControlHost}api/ground-operator/announce`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -215,7 +204,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
                 
                 // 📡 Notify server about disconnection
                 try {
-                    await fetch(`${module.config.modules.media.client.missionControlHost}api/ground-operator/disconnect`, {
+                    await fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -239,7 +228,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         if (selectedDrone) {
             // 📡 Notify server before disconnecting
             try {
-                await fetch(`${module.config.modules.media.client.missionControlHost}api/ground-operator/disconnect`, {
+                await fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
