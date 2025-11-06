@@ -5,5 +5,5 @@ api:
   origin: "*"
   listen: ""
   tls_listen: ":1984"
-  tls_cert: /home/pi/src/mission-control/ssl/server.crt
-  tls_key: /home/pi/src/mission-control/ssl/server.key
+  tls_cert: ssl/server.crt
+  tls_key: ssl/server.key
