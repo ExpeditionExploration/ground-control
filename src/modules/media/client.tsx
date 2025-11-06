@@ -48,10 +48,16 @@ export class MediaModuleClient extends Module {
             side: Side.Right,
         });
         this.broadcaster.on('*:*', (data) => {
+            if (this.liveKitRoom.state !== 'connected') {
+                console.warn('LiveKit room not connected, skipping publishData');
+                return;
+            }
             console.log('Broadcast received in MediaModuleClient. Emitting', data);
             this.liveKitRoom.localParticipant.publishData(
                 this.encoder.encode(JSON.stringify(data)),
-            );
+            ).catch((error) => {
+                console.error('Failed to publish data to LiveKit', error);
+            });
         });
         this.liveKitRoom.registerTextStreamHandler('drone-control',
             async (reader: TextStreamReader, participant: {identity: string}) => {
