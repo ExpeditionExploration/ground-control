@@ -6,6 +6,7 @@ import { Wrench } from './types';
 // import { OrangePi_5 } from 'opengpio';
 import { cross, subtract, pi, sin, cos, multiply, pinv, transpose, round } from 'mathjs';
 import { PCA9685 } from 'openi2c';
+import { Payload } from 'src/connection';
 
 const isProd = false; // process.env.NODE_ENV === 'production';
 export class ControlModuleServer extends Module {
@@ -13,6 +14,22 @@ export class ControlModuleServer extends Module {
     private physicalMotors: { [key: string]: MotorState } = {};
     private virtualMotors: { [key: string]: MotorState } = {};
     private virtualToPhysical: { [physicalKey: string]: { [virtualKey: string]: number } } = {};
+
+    private keyDownTimers: Record<string, NodeJS.Timeout> = {};
+    private remoteCommandStates: Record<string, boolean> = {
+        roll_left: false,
+        roll_right: false,
+        pitch_up: false,
+        pitch_down: false,
+        yaw_left: false,
+        yaw_right: false,
+        surge: false,
+        surge_back: false,
+    };
+    private remoteWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
+    private localWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
+    private lastLocalInputTs = 0;
+    private localInputTimeoutMs = 200;
 
     constructor(deps: ServerModuleDependencies) {
         super(deps);
@@ -70,26 +87,56 @@ export class ControlModuleServer extends Module {
         };
         this.setupMotors();
         this.emitWrenchContinuously();
+
+        this.broadcaster.on('*:*', (data: Payload) => {
+            if (data.namespace !== 'drone-remote-control') {
+                return;
+            }
+            const command = data.data?.command as keyof typeof this.remoteCommandStates | undefined;
+            if (!command || !(command in this.remoteCommandStates)) {
+                return;
+            }
+            this.applyRemoteCommand(command, true);
+            if (this.keyDownTimers[command]) {
+                clearTimeout(this.keyDownTimers[command]);
+            }
+            this.keyDownTimers[command] = setTimeout(() => {
+                this.applyRemoteCommand(command, false);
+            }, 100);
+        });
+    }
+
+    private applyRemoteCommand(command: keyof typeof this.remoteCommandStates, active: boolean) {
+        this.remoteCommandStates[command] = active;
+        this.remoteWrench = {
+            heave: 0,
+            sway: 0,
+            surge: this.computeAxis(this.remoteCommandStates.surge_back, this.remoteCommandStates.surge),
+            yaw: this.computeAxis(this.remoteCommandStates.yaw_left, this.remoteCommandStates.yaw_right),
+            pitch: this.computeAxis(this.remoteCommandStates.pitch_down, this.remoteCommandStates.pitch_up),
+            roll: this.computeAxis(this.remoteCommandStates.roll_left, this.remoteCommandStates.roll_right),
+        };
+    }
+
+    private computeAxis(negative: boolean, positive: boolean) {
+        if (negative && positive) return 0;
+        if (positive) return 1;
+        if (negative) return -1;
+        return 0;
     }
 
     emitWrenchContinuously() {
         setInterval(() => {
-            const wrench: Wrench = {
-                heave: this.virtualMotors.heave.power,
-                sway: this.virtualMotors.sway.power,
-                surge: this.virtualMotors.surge.power,
-                yaw: this.virtualMotors.yaw.power,
-                pitch: this.virtualMotors.pitch.power,
-                roll: this.virtualMotors.roll.power,
-            };
-            this.emit('wrench', wrench);
+            const now = Date.now();
+            const useLocal = now - this.lastLocalInputTs < this.localInputTimeoutMs;
+            const source = useLocal ? this.localWrench : this.remoteWrench;
+            this.applyWrenchToMotors(source);
         }, 250);
     }
 
     async setupMotors() {
-        const virtual = Object.values(this.virtualMotors);
-        const physical = Object.values(this.physicalMotors);
-        const { heave, sway, surge, yaw, pitch, roll } = this.virtualMotors;
+    const virtual = Object.values(this.virtualMotors);
+    const physical = Object.values(this.physicalMotors);
 
         // Initialize virtual and physical motors
         await Promise.all(virtual.map((m) => m.init()));
@@ -123,9 +170,9 @@ export class ControlModuleServer extends Module {
             ]);
         }
         mappingMatrix = transpose(mappingMatrix);
-        this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
+        // this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
         let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
-        this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
+        // this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
         this.virtualToPhysical = {};
         const virtualKeys = Object.keys(this.virtualMotors);
         const physicalKeys = Object.keys(this.physicalMotors);
@@ -137,32 +184,41 @@ export class ControlModuleServer extends Module {
                 this.virtualToPhysical[physKey][virtKey] = inverseMappingMatrix[i][j];
             }
         }
-        this.logger.info(`Virtual to physical mapping: ${JSON.stringify(this.virtualToPhysical)}`);
+        // this.logger.info(`Virtual to physical mapping: ${JSON.stringify(this.virtualToPhysical)}`);
 
         for (const motor of virtual) {
             motor.on('setPower', (power) => {
-                this.logger.info(`${motor.name} power set to ${power}`);
+                if (motor.name === 'Rear Motor') {
+                    this.logger.info(`${motor.name} power set to ${power}`);
+                }
             });
         }
 
         this.on('wrenchTarget', (wrench: Wrench) => {
-            // Update virtual motors for telemetry/UX
-            heave.setPower(wrench.heave);
-            sway.setPower(wrench.sway);
-            surge.setPower(wrench.surge);
-            yaw.setPower(wrench.yaw);
-            pitch.setPower(wrench.pitch);
-            roll.setPower(wrench.roll);
-
-            // Linearly combine each virtual motor power into each physical motor
-            for (const [physicalKey, terms] of Object.entries(this.virtualToPhysical)) {
-                let sum = 0;
-                for (const [virtualKey, scale] of Object.entries(terms)) {
-                    sum += (wrench[virtualKey as keyof Wrench]) * scale;
-                }
-                this.physicalMotors[physicalKey].setPower(sum);
-                this.logger.info(`${this.physicalMotors[physicalKey].name} power set to ${sum}`);
-            }
+            this.lastLocalInputTs = Date.now();
+            this.localWrench = { ...wrench };
+            this.applyWrenchToMotors(wrench);
         });
+    }
+
+    private applyWrenchToMotors(wrench: Wrench) {
+        const { heave, sway, surge, yaw, pitch, roll } = this.virtualMotors;
+        heave.setPower(wrench.heave);
+        sway.setPower(wrench.sway);
+        surge.setPower(wrench.surge);
+        yaw.setPower(wrench.yaw);
+        pitch.setPower(wrench.pitch);
+        roll.setPower(wrench.roll);
+
+        for (const [physicalKey, terms] of Object.entries(this.virtualToPhysical)) {
+            let sum = 0;
+            for (const [virtualKey, scale] of Object.entries(terms)) {
+                sum += (wrench[virtualKey as keyof Wrench]) * scale;
+            }
+            this.physicalMotors[physicalKey].setPower(sum);
+            this.logger.info(`${this.physicalMotors[physicalKey].name} power set to ${sum}`);
+        }
+
+        this.emit('wrench', wrench);
     }
 }

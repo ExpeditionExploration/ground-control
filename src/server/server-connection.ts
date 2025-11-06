@@ -2,9 +2,10 @@ import { Config } from "src/config";
 import { Connection, Payload } from "src/connection";
 import { WebSocketServer } from 'ws';
 import handler from 'serve-handler';
-import http, { Server } from 'http';
+import https, { Server } from 'https';
 import { Broadcaster } from "src/broadcaster";
 import { ServerApplicationDependencies } from "./server";
+import fs from 'fs';
 
 export class ServerConnection extends Connection {
     private readonly config!: Config;
@@ -19,7 +20,12 @@ export class ServerConnection extends Connection {
     }
 
     async init() {
-        this.server = http.createServer((request, response) => {
+        const options = {
+            key: fs.readFileSync("ssl/server.key"),
+            cert: fs.readFileSync("ssl/server.crt"),
+        };
+        this.server = https.createServer(options,
+            (request, response) => {
             return handler(request, response, {
                 public: process.cwd() // In final deployment, this should be the path to the build directory
             });

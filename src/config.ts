@@ -14,20 +14,23 @@ export class Config {
 
     async init() {
         try {
-            let text: string;
+            let obj: string;
 
             if (typeof window !== "undefined") {
-                const response = await fetch(`${import.meta.env.BASE_URL}moduleConfig.json5`);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch moduleConfig.json5 (status ${response.status})`);
-                }
-                text = await response.text();
+                // const response = await fetch(`${import.meta.env.BASE_URL}moduleConfig.json5`);
+                // if (!response.ok) {
+                //     throw new Error(`Failed to fetch moduleConfig.json5 (status ${response.status})`);
+                // }
+                // text = await response.text();
+                const { default: moduleConfig } = await import("../moduleConfig.json5?raw");
+                obj = JSON5.parse(moduleConfig);
             } else {
                 const file = path.resolve(process.cwd(), 'moduleConfig.json5');
-                text = await fs.readFile(file, 'utf8');
+                const text = await fs.readFile(file, 'utf8');
+                obj = await JSON5.parse(text);
             }
 
-            this.modules = JSON5.parse(text);
+            this.modules = obj;
             console.log('JSON5 module configuration loaded');
         } catch (error) {
             console.error('Error loading JSON5 module configuration:', error);

@@ -49,6 +49,9 @@ export class Broadcaster {
         const wildcardEventsMatchingEvent = events.filter((event: string) => {
             if (event[0] === '*') {
                 const eventName = event.split(':')[1];
+                if (event.split(':')[1] === '*') {
+                    return true;
+                }
                 return eventName === payload.event;
             }
 

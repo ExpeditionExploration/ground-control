@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react-swc';
 import { fileURLToPath, URL } from 'url';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path'
+import { json5Plugin } from 'vite-plugin-json5'
+import fs from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -28,11 +30,18 @@ export default defineConfig({
         },
     },
     server: {
-        host: '0.0.0.0',
-        cors: true,
-        origin: '*',
+        host: 'rpi-82266.local',
+        https: {
+            key: fs.readFileSync('ssl/server.key'),
+            cert: fs.readFileSync('ssl/server.crt'),
+            // passphrase: 'your-passphrase',
+        },
+        cors: {
+            origin: '*',
+        },
+        allowedHosts: ['rpi4.local', 'localhost', 'rpi-82266.local'],
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), json5Plugin()],
     resolve: {
         alias: [
             {

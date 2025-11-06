@@ -1,141 +1,143 @@
 import { Module } from 'src/module';
 import { Side, UserInterface } from 'src/client/user-interface';
 import { ClientModuleDependencies } from 'src/client/client';
-import { MediaContextItem } from './components/MediaContextItem';
-import { TakePictureButton } from './components/TakePictureButton';
-import { RecordButton } from './components/RecordButton';
+import { Room, TextStreamReader } from 'livekit-client';
+import type { MediaContextValue } from './context/MediaModuleContext';
+import { MediaModuleShell } from './components/MediaModuleShell';
+import {
+    MediaPortalTakePictureAnchor,
+    MediaPortalRecordAnchor,
+    MediaPortalWebCamAnchor,
+} from './components/MediaPortalAnchors';
 
 export class MediaModuleClient extends Module {
     userInterface: UserInterface;
-    tokenServer: string | null = null;
+    tokenServer: string | null;
     tokenServerRequestInterval: NodeJS.Timeout | null = null;
     token: string | null = null;
     livekitHost: string | null = null;
     livekitInterval: NodeJS.Timeout | null = null;
-    private lastTestStreamRequest = 0;
+    encoder: TextEncoder = new TextEncoder();
+    decoder: TextDecoder = new TextDecoder();
     private readonly roomName = 'mission-control-test';
-
+    readonly liveKitRoom: Room;
+    private portalTargets = new Map<string, HTMLElement>();
+    private portalSubscribers = new Set<() => void>();
+    private portalVersion = 0;
+    private webcamControls?: MediaContextValue['webcamControls'];
+    
 
     constructor(deps: ClientModuleDependencies) {
         super(deps);
         this.userInterface = deps.userInterface;
+        this.liveKitRoom = new Room({
+            adaptiveStream: true,
+            dynacast: true,
+        });
     }
 
     onModuleInit(): void | Promise<void> {
-        this.userInterface.addContextItem(MediaContextItem);
-        this.userInterface.addFooterItem(TakePictureButton, {
+        this.userInterface.addContextItem(MediaModuleShell);
+        this.userInterface.addFooterItem(MediaPortalTakePictureAnchor, {
             side: Side.Right,
         });
-        this.userInterface.addFooterItem(RecordButton, {
+        this.userInterface.addFooterItem(MediaPortalRecordAnchor, {
             side: Side.Right,
         });
-
-        this.on('response-env-var-token-server', async (address: string) => {
-            this.logger.info("Received token server address from be:", address);
-            this.tokenServer = address;
-            if (this.tokenServerRequestInterval) {
-                clearInterval(this.tokenServerRequestInterval);
-                this.tokenServerRequestInterval = null;
-            }
+        this.userInterface.addFooterItem(MediaPortalWebCamAnchor, {
+            side: Side.Right,
         });
-        this.on('response-env-var-livekit-url', (address: string) => {
-            this.logger.info("Received LiveKit URL from be:", address);
-            this.livekitHost = address;
-            if (this.livekitInterval) {
-                clearInterval(this.livekitInterval);
-                this.livekitInterval = null;
+        this.broadcaster.on('*:*', (data) => {
+            if (this.liveKitRoom.state !== 'connected') {
+                console.warn('LiveKit room not connected, skipping publishData');
+                return;
             }
-            this.requestTestStreamStart(true);
-        });
-
-        this.requestTokenServer();
-        this.requestLiveKitUrl();
-    }
-
-    async requestToken() {
-        if (!this.tokenServer) {
-            this.logger.warn("Token server address not set yet.");
-            return null;
-        }
-
-        this.logger.info("Requesting token from server:", this.tokenServer);
-        try {
-            const response = await fetch(`${this.tokenServer}/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    identity: 'mc-client',
-                    room: this.roomName,
-                }),
+            console.log('Broadcast received in MediaModuleClient. Emitting', data);
+            this.liveKitRoom.localParticipant.publishData(
+                this.encoder.encode(JSON.stringify(data)),
+            ).catch((error) => {
+                console.error('Failed to publish data to LiveKit', error);
             });
-            if (!response.ok) {
-                // Return null for no token
-                return null;
+        });
+        this.liveKitRoom.registerTextStreamHandler('drone-control',
+            async (reader: TextStreamReader, participant: {identity: string}) => {
+                console.log('Data stream started from participant:', participant);
+                console.log('Stream information:', reader.info);
+                for await (const chunk of reader) {
+                    try {
+                        const parsed = JSON.parse(chunk);
+                        console.log('Data:', parsed.droneControl);
+                        const data = {
+                            command: parsed.droneControl.command,
+                            identity: participant.identity,
+                        };
+                        this.broadcaster.emit('drone-remote-control:command', data);
+                    } catch (e) {
+                        console.error('Failed to parse data message', e);
+                    }
+                }
             }
-            const data = await response.json();
-            this.token = data.token;
-            return this.token;
-        } catch (err) {
-            // Suppress error. Return null for no token
-            return null;
-        }
+        );
     }
 
-    requestTokenServer() {
-        if (this.tokenServerRequestInterval) {
+    registerPortalTarget(slot: string, element: HTMLElement | null) {
+        const existing = this.portalTargets.get(slot);
+        if (existing === element) {
             return;
         }
-        const emitToBe = () => {
-            this.logger.info("Requesting token server address from be");
-            this.emit<string>('request-env-var', "TOKEN_SERVER");
+        if (element) {
+            this.portalTargets.set(slot, element);
+        } else {
+            this.portalTargets.delete(slot);
+        }
+        this.notifyPortalSubscribers();
+    }
+
+    getPortalTarget(slot: string) {
+        return this.portalTargets.get(slot);
+    }
+
+    subscribeUpdates(listener: () => void) {
+        this.portalSubscribers.add(listener);
+        return () => {
+            this.portalSubscribers.delete(listener);
         };
-        emitToBe();
-        this.tokenServerRequestInterval = setInterval(emitToBe, 3000);
     }
 
-    requestLiveKitUrl() {
-        if (this.livekitInterval) {
-            return;
-        }
-        const requestUrl = () => {
-            this.logger.info("Requesting LiveKit URL from be");
-            this.emit<string>('request-env-var', "LIVEKIT_URL");
+    getVersion() {
+        return this.portalVersion;
+    }
+
+    getMediaContextValue(): MediaContextValue {
+        const mediaConfig = this.mediaConfig as {
+            liveKitUrl: string;
+            missionControlHost: string;
         };
-        requestUrl();
-        this.livekitInterval = setInterval(requestUrl, 3000);
+        return {
+            module: this,
+            liveKitUrl: mediaConfig.liveKitUrl,
+            missionControlHost: mediaConfig.missionControlHost,
+            room: this.liveKitRoom,
+            webcamControls: this.webcamControls,
+        };
     }
 
-    // Not at use yet
-    // onDataChannelMessage = (message: ReceivedDataMessage<string>) => {
-    //     this.logger.info("Received data channel message:", message);
-    //     switch (message.topic) {
-    //         // Signal drone control messages from here to be.
-    //         case "drone-control":
-    //             this.logger.info("Drone control message:", message.payload);
-    //             // Handle drone control message
-    //             break;
-    //         case "livekit-stream-status":
-    //             if (typeof message.payload === 'string' && message.payload === 'ended') {
-    //                 this.logger.warn('LiveKit stream ended notification received; requesting restart');
-    //                 this.requestTestStreamStart(true);
-    //             }
-    //             break;
-    //         default:
-    //             this.logger.warn("Unknown data channel topic:", message.topic);
-    //     }
-    // }
-
-    requestTestStreamStart(force = false) {
-        const now = Date.now();
-        if (!force && now - this.lastTestStreamRequest < 10_000) {
-            this.logger.debug('Skipping LiveKit test stream request; last request too recent');
+    setWebcamControls(controls: MediaContextValue['webcamControls']) {
+        if (this.webcamControls === controls) {
             return;
         }
+        this.webcamControls = controls;
+        this.notifyPortalSubscribers();
+    }
 
-        this.lastTestStreamRequest = now;
-        this.logger.info('Requesting backend to start LiveKit test stream');
-        this.emit('start-livekit-test-stream', undefined);
+    private notifyPortalSubscribers() {
+        this.portalVersion += 1;
+        this.portalSubscribers.forEach((listener) => {
+            listener();
+        });
+    }
+
+    get mediaConfig() {
+        return (this.config as any)?.modules?.media ?? {};
     }
 }

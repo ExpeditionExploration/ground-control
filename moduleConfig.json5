@@ -3,6 +3,10 @@
 {
     // General settings that apply to all modules and drone core settings.
     "common": {
+        "websocket": { // Only SSL now
+            "cert": "ssl/server.crt",
+            "key": "ssl/server.key"
+        },
         "drone": {
             "centerOfMass": [-0.013901, 0, -0.99135], // [sway/pitch, heave/yaw, surge/roll] in 3D Viewer
             "leds":{
@@ -13,7 +17,7 @@
             "camera": [0, 0, 0],
         },
         "pca9685": {
-            "enabled": true,
+            "enabled": false,
             // "i2cBus": 1, // RaspberryPi_4B
             "i2cBus": 4, // OrangePi_5
             "i2cAddr": "0x40",
@@ -76,12 +80,22 @@
         "client": {}
     },
     "media": {
-        "server": {},
-        "client": {}
+        // Token server lives at the mission-control-remote repository
+        // Watch out for vscode port forwards if using localhost here
+        "liveKitUrl": "wss://misison-control-test-7te1qygb.livekit.cloud",
+        "droneStreamPath": "api/stream.mjpeg?src=camera1",
+        "droneStreamPort": "1984",
+        "missionControlHost": "https://mission-control-sigma.vercel.app/",
+        "macAddress": "2c:cf:67:db:b9:15",
+        "server": {
+            // LiveKit secrets are in the .env file and not here.
+        },
+        "client": {
+        }
     },
     "lights": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "pca9685": {
                 "leds": {
                     "vis": 13,
@@ -94,7 +108,7 @@
     },
     "control": {
         "server": {
-            "enabled": true,
+            "enabled": false,
         },
         "client": {}
     },
@@ -102,13 +116,9 @@
         "server": {},
         "client": {}
     },
-    "spatial": {
-        "server": {},
-        "client": {}
-    },
     "imu": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
                 "i2cBus": 5, // OrangePi_5
@@ -139,7 +149,7 @@
     },
     "tof": {
         "server": {
-            "enabled": true,
+            "enabled": false,
             "vl53l5cx": {
                 // "i2cBus": 1, // RaspberryPi_4B
                 "i2cBus": 4, // OrangePi_5

@@ -52,7 +52,8 @@
         "tailwind-merge": "^3.3.0",
         "vite-plugin-node-polyfills": "^0.23.0",
         "vl53l5cx": "github:ExpeditionExploration/openi2c-VL53L5CX",
-        "ws": "^8.18.2"
+        "ws": "^8.18.2",
+        "zod": "^4.1.12"
     },
     "devDependencies": {
         "@eslint/js": "^9.27.0",
@@ -77,6 +78,7 @@
         "tsx": "^4.19.4",
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.33.0",
-        "vite": "^6.3.5"
+        "vite": "^6.3.5",
+        "vite-plugin-json5": "^1.2.0"
     }
 }
