@@ -4,8 +4,8 @@
     // General settings that apply to all modules and drone core settings.
     "common": {
         "websocket": { // Only SSL now
-            "cert": "/ssl/server.crt",
-            "key": "/ssl/server.key"
+            "cert": "ssl/server.crt",
+            "key": "ssl/server.key"
         },
         "drone": {
             "centerOfMass": [-0.013901, 0, -0.99135], // [sway/pitch, heave/yaw, surge/roll] in 3D Viewer
