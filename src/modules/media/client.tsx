@@ -1,7 +1,7 @@
 import { Module } from 'src/module';
 import { Side, UserInterface } from 'src/client/user-interface';
 import { ClientModuleDependencies } from 'src/client/client';
-import { Room } from 'livekit-client';
+import { Room, TextStreamReader } from 'livekit-client';
 import type { MediaContextValue } from './context/MediaModuleContext';
 import { MediaModuleShell } from './components/MediaModuleShell';
 import {
@@ -17,6 +17,8 @@ export class MediaModuleClient extends Module {
     token: string | null = null;
     livekitHost: string | null = null;
     livekitInterval: NodeJS.Timeout | null = null;
+    encoder: TextEncoder = new TextEncoder();
+    decoder: TextDecoder = new TextDecoder();
     private readonly roomName = 'mission-control-test';
     readonly liveKitRoom: Room;
     private portalTargets = new Map<string, HTMLElement>();
@@ -45,6 +47,31 @@ export class MediaModuleClient extends Module {
         this.userInterface.addFooterItem(MediaPortalWebCamAnchor, {
             side: Side.Right,
         });
+        this.broadcaster.on('*:*', (data) => {
+            console.log('Broadcast received in MediaModuleClient. Emitting', data);
+            this.liveKitRoom.localParticipant.publishData(
+                this.encoder.encode(JSON.stringify(data)),
+            );
+        });
+        this.liveKitRoom.registerTextStreamHandler('drone-control',
+            async (reader: TextStreamReader, participant: {identity: string}) => {
+                console.log('Data stream started from participant:', participant);
+                console.log('Stream information:', reader.info);
+                for await (const chunk of reader) {
+                    try {
+                        const parsed = JSON.parse(chunk);
+                        console.log('Data:', parsed.droneControl);
+                        const data = {
+                            command: parsed.droneControl.command,
+                            identity: participant.identity,
+                        };
+                        this.broadcaster.emit('drone-remote-control:command', data);
+                    } catch (e) {
+                        console.error('Failed to parse data message', e);
+                    }
+                }
+            }
+        );
     }
 
     registerPortalTarget(slot: string, element: HTMLElement | null) {

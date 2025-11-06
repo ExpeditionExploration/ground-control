@@ -56,7 +56,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         const { hostname } = window.location;
         const portSegment = mediaConfig.droneStreamPort ?? '1984';
         const pathSegment = mediaConfig.droneStreamPath ?? 'api/stream.mjpeg?src=camera1';
-        console.log("Setting drone MJPEG stream URL to:", `http://${hostname}:${portSegment}/${pathSegment}`);
+        console.log("Setting drone MJPEG stream URL to:", `https://${hostname}:${portSegment}/${pathSegment}`);
         setDroneMjpegStreamUrl(`https://${hostname}:${portSegment}/${pathSegment}`);
     }, []);
 

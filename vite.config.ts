@@ -30,7 +30,7 @@ export default defineConfig({
         },
     },
     server: {
-        host: '0.0.0.0',
+        host: 'rpi-82266.local',
         https: {
             key: fs.readFileSync('ssl/server.key'),
             cert: fs.readFileSync('ssl/server.crt'),
