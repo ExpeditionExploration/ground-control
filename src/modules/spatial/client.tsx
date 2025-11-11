@@ -37,7 +37,16 @@ export class SpatialModuleClient extends Module {
                 namespace: 'angle',
                 data: angleStatus,
             });
-        })
+        });
+
+        this.broadcaster.on('imu:acceleration', (payload: Payload) => {
+            const imuAcceleration = payload.data as Acceleration;
+            this.sendStatusPayloadToWindow({
+                event: 'acceleration',
+                namespace: 'acceleration',
+                data: imuAcceleration,
+            });
+        });
 
         this.broadcaster.on('location:location', (payload: Payload) => {
             this.sendStatusPayloadToWindow(payload);

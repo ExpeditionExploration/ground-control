@@ -1,7 +1,7 @@
 import './index.css';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
-import { OrbitControls, Text, Billboard, MapControls } from '@react-three/drei';
+import { OrbitControls, Text, Billboard, View, OrthographicCamera, PerspectiveCamera } from '@react-three/drei';
 import { Line } from '@react-three/drei';
 import { Bloom, EffectComposer, N8AO } from '@react-three/postprocessing';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
@@ -11,6 +11,9 @@ import { Wrench as ControlWrench } from 'src/modules/control/types';
 import { Payload } from 'src/connection';
 import { AngleStatus } from '../types';
 import { TOFArray } from './components/TOFArray';
+import { GizmoOverlay, GizmoOverlayProps } from './components/GizmoOverlay';
+import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 
 const TEXT_SCALE = 0.15;
 const LINE_HEIGHT = TEXT_SCALE * 1.25;
@@ -25,6 +28,8 @@ interface DroneProps {
     angleStatus: AngleStatus;
     settings: any;
 }
+
+import { useThree } from '@react-three/fiber';
 
 function Drone(props: DroneProps) {
     const obj = useLoader(OBJLoader, './drone.obj');
@@ -57,9 +62,9 @@ function Drone(props: DroneProps) {
         centerY: number = 0,
     ) => {
         const curve = new EllipseCurve(
-            centerX,  centerY,
+            centerX, centerY,
             horizontalD / 2, verticalD / 2,
-            0,  endAngle, // start and end angle.
+            0, endAngle, // start and end angle.
             clockwise,
             rotation
         );
@@ -133,244 +138,244 @@ function Drone(props: DroneProps) {
     const pitchArcPoints = useMemo(() => {
         const horiz = 1.5;
         const vert = 1.5;
-        const points = ellipseArcPoints(horiz, vert, Math.PI * 3/5, 'ZY', Math.PI + 1/5 * Math.PI);
+        const points = ellipseArcPoints(horiz, vert, Math.PI * 3 / 5, 'ZY', Math.PI + 1 / 5 * Math.PI);
         return points;
     }, [locs]);
 
     return (
-    <group scale={[0.1, 0.1, 0.1]} position={props.position} rotation={[angleStatus.angle[0] * (Math.PI / 180), angleStatus.angle[1] * (Math.PI / 180), angleStatus.angle[2] * (Math.PI / 180)]}>
+        <group scale={[0.1, 0.1, 0.1]} position={props.position} rotation={[angleStatus.angle[0] * (Math.PI / 180), angleStatus.angle[1] * (Math.PI / 180), angleStatus.angle[2] * (Math.PI / 180)]}>
             <primitive
                 rotation={[0, 0, 0]}
                 scale={[0.1, 0.1, 0.1]}
                 object={obj}
             />
             {locs &&
-            <group position={[0, 0, 0]}>
-                <Billboard
-                    follow={true}
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false}
-                    position={locs.surgeBillboard}
-                >
-                    <Text
-                        fontSize={TEXT_SCALE * 1}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Surge
-                    </Text>
-                    <Text
-                        position={[0, -LINE_HEIGHT, 0]}
-                        fontSize={TEXT_SCALE * 0.75}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Power: {(controlWrench.surge * 100).toFixed(0)}%
-                    </Text>
-                </Billboard>
-                <Line
-                    points={[
-                        locs.surgeBillboard.map((a, i) => i === 1 ? a + 0.2 : a),
-                        locs.surgeBillboard.map((a, i) => i === 1 ? a + 0.5 : a),
-                    ]}
-                    color="#ffffff"
-                    transparent={true}
-                    opacity={0.25}
-                    lineWidth={LINE_WIDTH}
-                    worldUnits={true}
-                />
-            </group> }
-            {locs &&
-            <group position={locs.yawBillboard}>
-                <Billboard
-                    position={[-1, 0, 0]}
-                    follow={true}
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false}
-                >
-                    <Text
-                        position={[0, 0, 0]}
-                        fontSize={TEXT_SCALE * 1}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Yaw
-                    </Text>
-                    <Text
-                        position={[0, -LINE_HEIGHT, 0]}
-                        fontSize={TEXT_SCALE * 0.75}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Power: {(controlWrench.yaw * 100).toFixed(0)}%
-                    </Text>
-                </Billboard>
-
                 <group position={[0, 0, 0]}>
+                    <Billboard
+                        follow={true}
+                        lockX={false}
+                        lockY={false}
+                        lockZ={false}
+                        position={locs.surgeBillboard}
+                    >
+                        <Text
+                            fontSize={TEXT_SCALE * 1}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Surge
+                        </Text>
+                        <Text
+                            position={[0, -LINE_HEIGHT, 0]}
+                            fontSize={TEXT_SCALE * 0.75}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Power: {(controlWrench.surge * 100).toFixed(0)}%
+                        </Text>
+                    </Billboard>
                     <Line
-                        points={yawArcPoints}
+                        points={[
+                            locs.surgeBillboard.map((a, i) => i === 1 ? a + 0.2 : a),
+                            locs.surgeBillboard.map((a, i) => i === 1 ? a + 0.5 : a),
+                        ]}
                         color="#ffffff"
                         transparent={true}
                         opacity={0.25}
                         lineWidth={LINE_WIDTH}
                         worldUnits={true}
                     />
-                </group>
-            </group> }
+                </group>}
             {locs &&
-            <group position={[0, 0, 0]}>
-                <Billboard
-                    position={locs.rollBillboard}
-                    follow
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false}
-                >
-                    <Text
-                        fontSize={TEXT_SCALE * 1}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
+                <group position={locs.yawBillboard}>
+                    <Billboard
+                        position={[-1, 0, 0]}
+                        follow={true}
+                        lockX={false}
+                        lockY={false}
+                        lockZ={false}
                     >
-                        <meshStandardMaterial
+                        <Text
+                            position={[0, 0, 0]}
+                            fontSize={TEXT_SCALE * 1}
                             color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Roll
-                    </Text>
-                    <Text
-                        position={locs.rollBillboard.map((a, i) => i === 1 ? -LINE_HEIGHT : a)}
-                        fontSize={TEXT_SCALE * 0.75}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Yaw
+                        </Text>
+                        <Text
+                            position={[0, -LINE_HEIGHT, 0]}
+                            fontSize={TEXT_SCALE * 0.75}
                             color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Power: {(controlWrench.roll * 100).toFixed(0)}%
-                    </Text>
-                </Billboard>
-                {/* Semi-circle arc with endpoints at x = -0.7 and 0.7 (motor centers) */}
-                <Line
-                    points={rollArcPoints}
-                    color="#ffffff"
-                    transparent
-                    opacity={0.6}
-                    lineWidth={LINE_WIDTH}
-                    worldUnits
-                />
-                {/* Left endpoint downward arrow. */}
-                <Line
-                    points={[
-                        [-0.76, 0.5, 0.001],
-                        [-0.7, 0.42, 0.001],
-                    ]}
-                    color="#ffffff"
-                    transparent
-                    opacity={0.85}
-                    lineWidth={LINE_WIDTH}
-                    worldUnits
-                />
-                <Line
-                    points={[
-                        [-0.64, 0.5, 0.001],
-                        [-0.7, 0.42, 0.001],
-                    ]}
-                    color="#ffffff"
-                    transparent
-                    opacity={0.85}
-                    lineWidth={LINE_WIDTH}
-                    worldUnits
-                />
-            </group> }
-            { locs &&
-            <group position={locs.pitchBillboard}>
-                <Billboard
-                    position={[0, -0.3, 0]}
-                    follow={true}
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false}
-                >
-                    <Text
-                        position={[0, -0.7, 0]}
-                        fontSize={TEXT_SCALE * 1}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Pitch
-                    </Text>
-                    <Text
-                        position={[0, -0.7 - LINE_HEIGHT, 0]}
-                        fontSize={TEXT_SCALE * 0.75}
-                        color="#ffffff"
-                        anchorX="center"
-                        anchorY="middle"
-                    >
-                        <meshStandardMaterial
-                            color="#ffffff"
-                            emissive="#00ffff"
-                            emissiveIntensity={1}
-                            toneMapped={false}
-                        />
-                        Power: {(controlWrench.pitch * 100).toFixed(0)}%
-                    </Text>
-                </Billboard>
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Power: {(controlWrench.yaw * 100).toFixed(0)}%
+                        </Text>
+                    </Billboard>
 
+                    <group position={[0, 0, 0]}>
+                        <Line
+                            points={yawArcPoints}
+                            color="#ffffff"
+                            transparent={true}
+                            opacity={0.25}
+                            lineWidth={LINE_WIDTH}
+                            worldUnits={true}
+                        />
+                    </group>
+                </group>}
+            {locs &&
                 <group position={[0, 0, 0]}>
+                    <Billboard
+                        position={locs.rollBillboard}
+                        follow
+                        lockX={false}
+                        lockY={false}
+                        lockZ={false}
+                    >
+                        <Text
+                            fontSize={TEXT_SCALE * 1}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Roll
+                        </Text>
+                        <Text
+                            position={locs.rollBillboard.map((a, i) => i === 1 ? -LINE_HEIGHT : a)}
+                            fontSize={TEXT_SCALE * 0.75}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Power: {(controlWrench.roll * 100).toFixed(0)}%
+                        </Text>
+                    </Billboard>
+                    {/* Semi-circle arc with endpoints at x = -0.7 and 0.7 (motor centers) */}
                     <Line
-                        points={pitchArcPoints}
+                        points={rollArcPoints}
                         color="#ffffff"
-                        transparent={true}
-                        opacity={0.25}
+                        transparent
+                        opacity={0.6}
                         lineWidth={LINE_WIDTH}
-                        worldUnits={true}
+                        worldUnits
                     />
-                </group>
-            </group> }
+                    {/* Left endpoint downward arrow. */}
+                    <Line
+                        points={[
+                            [-0.76, 0.5, 0.001],
+                            [-0.7, 0.42, 0.001],
+                        ]}
+                        color="#ffffff"
+                        transparent
+                        opacity={0.85}
+                        lineWidth={LINE_WIDTH}
+                        worldUnits
+                    />
+                    <Line
+                        points={[
+                            [-0.64, 0.5, 0.001],
+                            [-0.7, 0.42, 0.001],
+                        ]}
+                        color="#ffffff"
+                        transparent
+                        opacity={0.85}
+                        lineWidth={LINE_WIDTH}
+                        worldUnits
+                    />
+                </group>}
+            {locs &&
+                <group position={locs.pitchBillboard}>
+                    <Billboard
+                        position={[0, -0.3, 0]}
+                        follow={true}
+                        lockX={false}
+                        lockY={false}
+                        lockZ={false}
+                    >
+                        <Text
+                            position={[0, -0.7, 0]}
+                            fontSize={TEXT_SCALE * 1}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Pitch
+                        </Text>
+                        <Text
+                            position={[0, -0.7 - LINE_HEIGHT, 0]}
+                            fontSize={TEXT_SCALE * 0.75}
+                            color="#ffffff"
+                            anchorX="center"
+                            anchorY="middle"
+                        >
+                            <meshStandardMaterial
+                                color="#ffffff"
+                                emissive="#00ffff"
+                                emissiveIntensity={1}
+                                toneMapped={false}
+                            />
+                            Power: {(controlWrench.pitch * 100).toFixed(0)}%
+                        </Text>
+                    </Billboard>
+
+                    <group position={[0, 0, 0]}>
+                        <Line
+                            points={pitchArcPoints}
+                            color="#ffffff"
+                            transparent={true}
+                            opacity={0.25}
+                            lineWidth={LINE_WIDTH}
+                            worldUnits={true}
+                        />
+                    </group>
+                </group>}
         </group>
     );
 }
@@ -379,7 +384,8 @@ export function App() {
     const [controlWrench, setControlWrench] = useState<ControlWrench>({ heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 });
     const [angleStatus, setAngleStatus] = useState<AngleStatus>({ angle: [0, 0, 0] });
     const [settings, setSettings] = useState<Object | null>(null);
-
+    const [acceleration, setAcceleration] = useState<[number, number, number]>([0, 0, 0]);
+    
     useEffect(() => {
         const spatialChannel = new BroadcastChannel('spatial-window');
         const handleMessage = (event: MessageEvent<Payload>) => {
@@ -393,6 +399,9 @@ export function App() {
                     break;
                 case 'control':
                     setControlWrench(payload.data as ControlWrench);
+                    break;
+                case 'acceleration':
+                    setAcceleration(payload.data as [number, number, number]);
                     break;
                 case 'angle':
                     setAngleStatus((prev) => {
@@ -428,15 +437,68 @@ export function App() {
 
     const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
+    const [cameraOrientation, setCameraOrientation] = useState<{
+        pitch: number,
+        yaw: number,
+        roll: number,
+        forward: [number, number, number]
+    }>({
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        forward: [0, 0, 0]
+    });
+
+    const gizmoProps: GizmoOverlayProps = {
+        acceleration: {
+            x: acceleration[0],
+            y: acceleration[1],
+            z: acceleration[2],
+        },
+        droneOrientation: {
+            yaw: angleStatus.angle[1],
+            pitch: angleStatus.angle[0],
+            roll: angleStatus.angle[2],
+        },
+        settings: {
+            maxMs2: 2,
+            maxArrowLength: 1.8,
+            cameraDistance: 5,
+        }
+    };
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
     return (
-        <div className="bg-gray-900 bg-gradient-to-t from-gray-950 min-h-screen">
-            <Canvas camera={{ position: [1, 2, 3], fov: 30 }} frameloop="demand">
+        <div ref={containerRef} className="bg-gray-900 bg-gradient-to-t from-gray-950 min-h-screen">
+
+            <Canvas eventSource={containerRef} gl={{ stencil: true }}>
+                <View.Port />
+            </Canvas>
+
+            <View
+                index={1}
+                className="main-view absolute top-0 left-0"
+                style={{
+                    height: `100%`,
+                    width: `100%`
+                }}>
+
                 <OrbitControls
                     enablePan={true}
                     enableZoom={true}
                     enableRotate={true}
                     target={dronePosition}
                 />
+
+                <UseMainCameraOrientation onUpdate={(o) => {
+                    setCameraOrientation(o);
+                }} />
+
+                <PerspectiveCamera
+                    makeDefault={true}
+                    position={[1, 2, 3]}
+                    fov={30} />
                 <ambientLight color={'#0b4f4a'} intensity={10} />
                 <pointLight
                     color={'#0b4f4a'}
@@ -452,7 +514,7 @@ export function App() {
                 />
                 <Drone position={dronePosition} controlWrench={controlWrench} angleStatus={angleStatus} settings={settings} />
                 <TOFArray dronePosition={dronePosition} droneOrientation={{ yaw: deg2rad(angleStatus.angle[1]), pitch: deg2rad(angleStatus.angle[0]), roll: deg2rad(angleStatus.angle[2]) }} />
-                <EffectComposer>
+                {/* <EffectComposer>
                     <N8AO
                         aoRadius={500}
                         distanceFalloff={0.5}
@@ -469,8 +531,46 @@ export function App() {
                         kernelSize={KernelSize.HUGE}
                         intensity={0.1}
                     />
-                </EffectComposer>
-            </Canvas>
+                </EffectComposer> */}
+            </View>
+
+            <View
+                index={2}
+                className="acceleration-view absolute top-0 left-0"
+                style={{ height: `25%`, width: `25%` }}>
+                <>
+                    <PerspectiveCamera
+                        makeDefault={true}
+                        fov={50}
+                        lookAt={[0, 0, 0]} />
+                    <GizmoOverlay
+                        acceleration={gizmoProps.acceleration}
+                        droneOrientation={gizmoProps.droneOrientation}
+                        settings={gizmoProps.settings}
+                        cameraOrientation={cameraOrientation} />
+                </>
+            </View>
         </div>
     );
+}
+
+function UseMainCameraOrientation({ onUpdate }: { onUpdate: (o: { pitch: number, yaw: number, roll: number, forward: [number, number, number] }) => void }) {
+    const cam = useThree(s => s.camera as THREE.Camera)
+    const q = new THREE.Quaternion()
+    const e = new THREE.Euler()
+    const f = new THREE.Vector3()
+
+    useFrame(() => {
+        cam.getWorldQuaternion(q)
+        e.setFromQuaternion(q, 'YXZ') // yaw=e.y, pitch=e.x, roll=e.z
+        cam.getWorldDirection(f) // world forward (-Z)
+        onUpdate({
+            pitch: e.x,
+            yaw: e.y,
+            roll: e.z,
+            forward: f.toArray() as [number, number, number],
+        })
+    })
+
+    return null
 }
