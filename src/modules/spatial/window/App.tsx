@@ -1,11 +1,11 @@
 import './index.css';
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, RefObject } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
-import { OrbitControls, Text, Billboard, View, OrthographicCamera, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, Text, Billboard, View, OrthographicCamera, PerspectiveCamera, ViewportProps, Text3D } from '@react-three/drei';
 import { Line } from '@react-three/drei';
 import { Bloom, EffectComposer, N8AO } from '@react-three/postprocessing';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { MeshStandardMaterial, Mesh, Color, EllipseCurve } from 'three';
+import { MeshStandardMaterial, Mesh, Color, EllipseCurve, Vector3 } from 'three';
 import { KernelSize } from 'postprocessing';
 import { Wrench as ControlWrench } from 'src/modules/control/types';
 import { Payload } from 'src/connection';
@@ -14,6 +14,7 @@ import { TOFArray } from './components/TOFArray';
 import { AccelerationComponents, AccelerationComponentsProps } from './components/AccelerationComponents';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { Group, Object3DEventMap } from 'three';
 
 const TEXT_SCALE = 0.15;
 const LINE_HEIGHT = TEXT_SCALE * 1.25;
@@ -31,6 +32,8 @@ interface DroneProps {
 
 import { useThree } from '@react-three/fiber';
 import { AccelerationComposite } from './components/AccelerationComposite';
+import { SpeedComposite, SpeedCompositeProps } from './components/SpeedComposite';
+import { Speed } from 'src/modules/imu/types';
 
 function Drone(props: DroneProps) {
     const obj = useLoader(OBJLoader, './drone.obj');
@@ -386,6 +389,13 @@ export function App() {
     const [angleStatus, setAngleStatus] = useState<AngleStatus>({ angle: [0, 0, 0] });
     const [settings, setSettings] = useState<Object | null>(null);
     const [acceleration, setAcceleration] = useState<[number, number, number]>([0, 0, 0]);
+    const [speed, setSpeed] = useState<{
+        speed: Vector3,
+        timestamp: number
+    }>({
+        speed: new Vector3(0, 0, 0),
+        timestamp: 0,
+    });
     
     useEffect(() => {
         const spatialChannel = new BroadcastChannel('spatial-window');
@@ -397,6 +407,15 @@ export function App() {
                     if (Array.isArray(payload.data?.position)) {
                         setDronePosition(payload.data.position as [number, number, number]);
                     }
+                    break;
+                case 'speed':
+                    const speed = new Vector3(
+                        (payload.data as Speed).x,
+                        (payload.data as Speed).y,
+                        (payload.data as Speed).z,
+                    );
+                    const timestamp = (payload.data as Speed).timestamp;
+                    setSpeed({ speed, timestamp });
                     break;
                 case 'control':
                     setControlWrench(payload.data as ControlWrench);
@@ -468,7 +487,29 @@ export function App() {
         }
     };
 
+    const [speedCompositeProps, setSpeedCompositeProps] = useState<SpeedCompositeProps>(null);
+    useEffect(() => {
+        const tmp: SpeedCompositeProps = {
+            speed: speed.speed,
+            speedTimestamp: speed.timestamp,
+            droneOrientation: {
+                yaw: angleStatus.angle[1],
+                pitch: angleStatus.angle[0],
+                roll: angleStatus.angle[2],
+            },
+            settings: {
+                maxMs: 4,
+                maxArrowLength: 3.8,
+                cameraDistance: 15,
+            }
+        };
+        setSpeedCompositeProps(tmp);
+    }, [speed]);
+
     const containerRef = useRef<HTMLDivElement>(null);
+    const acceleration3ComponentsRef = useRef<HTMLElement | Group<Object3DEventMap>>(null);
+    const accelerationCompositeRef = useRef<HTMLElement | Group<Object3DEventMap>>(null);
+    const speedCompositeRef = useRef<HTMLElement | Group<Object3DEventMap>>(null);
 
     return (
         <div ref={containerRef} className="bg-gray-900 bg-gradient-to-t from-gray-950 min-h-screen">
@@ -537,8 +578,9 @@ export function App() {
 
             {/* Components of acceleration on three axes */}
             <View
+                ref={acceleration3ComponentsRef}
                 index={2}
-                className="acceleration-view h-[25%] w-[25%] absolute top-0 left-0">
+                className="acceleration-view ml-2 my-2 border-2 border-gray-500 rounded-xl bg-[rgba(255,255,255,0.03)] h-72 w-72 absolute top-0 left-0">
                 <>
                     <PerspectiveCamera
                         makeDefault={true}
@@ -553,9 +595,11 @@ export function App() {
             </View>
 
             {/* Composite of components of acceleration as single vector */}
+            {acceleration3ComponentsRef && (
             <View
+                ref={accelerationCompositeRef}
                 index={3}
-                className="acceleration-view h-[25%] w-[25%] absolute top-[25%] left-0">
+                className={`acceleration-view border-2 border-gray-500 rounded-xl bg-[rgba(255,255,255,0.03)]  h-72 w-72 absolute top-72 left-0 ml-2 mt-4`}>
                 <>
                     <PerspectiveCamera
                         makeDefault={true}
@@ -567,7 +611,28 @@ export function App() {
                         settings={accelerationGizmoProps.settings}
                         cameraOrientation={cameraOrientation} />
                 </>
+            </View>)}
+
+            {/* Composite speed as a vector */}
+            {speedCompositeProps && (
+            <View
+                ref={speedCompositeRef}
+                index={4}
+                className="acceleration-view border-2 border-gray-500 rounded-xl bg-[rgba(255,255,255,0.03)] h-72 w-72 absolute top-150 left-0 ml-2">
+                <>
+                    <PerspectiveCamera
+                        makeDefault={true}
+                        fov={50}
+                        lookAt={[0, 0, 0]} />
+                    <SpeedComposite
+                        speed={speedCompositeProps.speed}
+                        speedTimestamp={speedCompositeProps.speedTimestamp}
+                        droneOrientation={accelerationGizmoProps.droneOrientation}
+                        settings={speedCompositeProps.settings}
+                        cameraOrientation={cameraOrientation} />
+                </>
             </View>
+            )}
         </div>
     );
 }

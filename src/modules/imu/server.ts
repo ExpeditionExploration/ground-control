@@ -2,12 +2,21 @@ import { Module } from 'src/module';
 import { IMU, SensorEvent, SensorId } from './class/IMU'; // SensorEvent comes from IMU
 import { Acceleration, Orientation, Speed } from './types';
 import * as opengpio from 'opengpio';
+import { TriAxisIntegrator } from './class/TriAxisIntegrator';
+import { SpeedKeeper } from './class/SpeedKeeper';
+import { Euler, Vector3 } from 'three';
 
 export class IMUModuleServer extends Module {
 
     private samplingInterval = 20
 
     private accelerationIntegrator = new TriAxisIntegrator()
+    private speedKeeper = new SpeedKeeper(
+        new TriAxisIntegrator(),
+        new Vector3(0, 0, -1),
+        new Vector3(1, 0, 0),
+        new Vector3(0, 1, 0)
+    );
     private currentYpr: [number, number, number] = [0, 0, 0]
     private imu?: IMU
     private speed: [number, number, number] = [0, 0, 0]
@@ -43,7 +52,24 @@ export class IMUModuleServer extends Module {
                 // Don't add delay. Timestamp is sensor's timestamp the sample
                 // was taken.
                 const timestamp =
-                    +this.toMs(ev.timestampMicroseconds)
+                    +this.toMs(ev.timestampMicroseconds);
+                
+                this.speedKeeper.update(
+                    [ev.x, ev.y, ev.z],
+                    new Euler(...this.currentYpr, 'YXZ'),
+                    timestamp,
+                );
+                this.logger.info('emitting speed', {
+                    x: this.speedKeeper.speed.x,
+                    y: this.speedKeeper.speed.y,
+                    z: this.speedKeeper.speed.z,
+                });
+                this.emit<Speed>('speed', {
+                    x: this.speedKeeper.speed.x,
+                    y: this.speedKeeper.speed.y,
+                    z: this.speedKeeper.speed.z,
+                    timestamp,
+                });
 
                 // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)
                 const ax = +ev.x, ay = +ev.y, az = +ev.z;
@@ -69,12 +95,14 @@ export class IMUModuleServer extends Module {
                     this.speed[1] + dv[1],
                     this.speed[2] + dv[2],
                 ]
-                this.emit<Speed>("speed", {
-                    x: this.speed[0],
-                    y: this.speed[1],
-                    z: this.speed[2],
-                    timestamp,
-                })
+
+                this.logger.info(`Total speed: ${(this.speed.reduce((a, b) => a + b * b, 0) ** 0.5).toFixed(2)} m/s`);
+                // this.emit<Speed>("speed", {
+                //     x: this.speed[0],
+                //     y: this.speed[1],
+                //     z: this.speed[2],
+                //     timestamp,
+                // })
                 break;
 
             case SensorId.SH2_ROTATION_VECTOR:
@@ -89,36 +117,5 @@ export class IMUModuleServer extends Module {
 
     private toMs = (us: bigint): number => {
         return Number(us / 1000n)
-    }
-}
-
-class TrapezoidalIntegrator {
-    private lastValue?: number
-    private previousTimestamp?: number
-
-    integrate(value: number, timestamp: number): number {
-        let result = 0
-        if (this.lastValue !== undefined) {
-            const min = Math.min(this.lastValue, value)
-            const max = Math.max(this.lastValue, value)
-            result = ((min) + ((max - min) * 0.5)) * (timestamp - this.previousTimestamp) / 1000
-        }
-        this.lastValue = value
-        this.previousTimestamp = timestamp
-        return result
-    }
-}
-
-class TriAxisIntegrator {
-    private x = new TrapezoidalIntegrator()
-    private y = new TrapezoidalIntegrator()
-    private z = new TrapezoidalIntegrator()
-
-    integrate(value: [number, number, number], timestamp: number): [number, number, number] {
-        return [
-            this.x.integrate(value[0], timestamp),
-            this.y.integrate(value[1], timestamp),
-            this.z.integrate(value[2], timestamp),
-        ]
     }
 }

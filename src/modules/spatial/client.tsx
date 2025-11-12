@@ -5,6 +5,7 @@ import { ClientModuleDependencies } from 'src/client/client';
 import { Payload } from 'src/connection';
 import { Orientation, Acceleration } from '../imu/types';
 import { AngleStatus } from './types';
+import { Speed } from '../imu/types';
 
 
 export class SpatialModuleClient extends Module {
@@ -45,6 +46,15 @@ export class SpatialModuleClient extends Module {
                 event: 'acceleration',
                 namespace: 'acceleration',
                 data: imuAcceleration,
+            });
+        });
+
+        this.broadcaster.on('imu:speed', (payload: Payload) => {
+            const imuSpeed = payload.data as Speed;
+            this.sendStatusPayloadToWindow({
+                event: 'speed',
+                namespace: 'speed',
+                data: imuSpeed,
             });
         });
 
