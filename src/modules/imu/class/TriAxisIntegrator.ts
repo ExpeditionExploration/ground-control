@@ -1,6 +1,7 @@
 import { TrapezoidalIntegrator } from './TrapezoidalIntegrator.js'
+import { IntegratorInterface } from './IntegratorInterface.js'
 
-export class TriAxisIntegrator {
+export class TriAxisIntegrator implements IntegratorInterface {
     private x = new TrapezoidalIntegrator()
     private y = new TrapezoidalIntegrator()
     private z = new TrapezoidalIntegrator()
