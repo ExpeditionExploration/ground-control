@@ -17,10 +17,10 @@
             "camera": [0, 0, 0],
         },
         "pca9685": {
-            "enabled": false,
-            // "i2cBus": 1, // RaspberryPi_4B
-            // "i2cBus": 4, // OrangePi_5
-            "i2cBus": 1, // RaspberryPi_5B
+            "enabled": true,
+            //"i2cBus": 1, // RaspberryPi_4B
+            //"i2cBus": 4, // OrangePi_5
+            "i2cBus": 2, // RaspberryPi_5B
             "i2cAddr": "0x40",
             "frequency": 526,
         },
@@ -52,7 +52,7 @@
             "Rear": {
                 "gpioOutPWM": 8, // [OrangePi_5.pwm(OrangePi_5.bcm.GPIO1_A3, 1, 500),
                 "gpioOutReverse": 9,
-                // "gpioOutStop": 10, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
+                "gpioOutStop": 12, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
                 "invertPWM": true,
                 "position": [0.00, 0.00, -29.2303],
                 "orientation": [0, 0, 1], // Right-hand rule (Z forward)
@@ -81,7 +81,7 @@
     },
     "lights": {
         "server": {
-            "enabled": false,
+            "enabled": true,
             "pca9685": {
                 "leds": {
                     "vis": 13,
@@ -94,7 +94,7 @@
     },
     "control": {
         "server": {
-            "enabled": false,
+            "enabled": true,
         },
         "client": {}
     },
@@ -107,13 +107,13 @@
             "enabled": false,
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
-                // "i2cBus": 5, // OrangePi_5
-                "i2cBus": 2, // RaspberryPi_5B
+                // "i2cBus": 1, // OrangePi_5
+                "i2cBus": 1, // RaspberryPi_5B
                 "i2cAddr": "0x4b",
                 "useInterrupts": true,
                 // From opengpio library use device-specific bcm pin names.
-                // "interruptPin": ["RaspberryPi_4B", "GPIO23"],
-                // "interruptPin": ["OrangePi_5", "GPIO1_D2"],
+                //"interruptPin": ["RaspberryPi_4B", "GPIO23"],
+                //"interruptPin": ["OrangePi_5", "GPIO1_D2"],
                 "interruptPin": ["RaspberryPi_5B", "GPIO23"],
             }
         },
