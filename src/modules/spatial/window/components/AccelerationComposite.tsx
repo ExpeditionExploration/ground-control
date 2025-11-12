@@ -56,7 +56,7 @@ export function AccelerationComposite(props: AccelerationCompositeProps) {
     const [compositeAccel, setCompositeAccel] = useState<Vector3>(new Vector3());
     const [compositeAccelArrow, setCompositeAccelArrow] = useState<ArrowHelper>(
         new ArrowHelper(
-            compositeAccel.clone().normalize(),
+            compositeAccel.clone().multiplyScalar(-1).normalize(),
             new Vector3(),
             clamp(compositeAccel.length(), 0, props.settings.maxMs2 ** 2),
             0xffffff
@@ -65,7 +65,7 @@ export function AccelerationComposite(props: AccelerationCompositeProps) {
 
     useEffect(() => {
         const newCompositeArrow = new ArrowHelper(
-            compositeAccel.clone().normalize(),
+            compositeAccel.clone().multiplyScalar(-1).normalize(),
             new Vector3(0, 0, 0),
             clamp(compositeAccel.length(), 0, props.settings.maxMs2 ** 2),
             0xffffff
