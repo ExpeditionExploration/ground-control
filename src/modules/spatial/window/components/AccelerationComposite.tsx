@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 
-export type GizmoOverlayProps = {
+export type AccelerationCompositeProps = {
     acceleration: {
         x: number;
         y: number;
@@ -34,19 +34,7 @@ export type GizmoOverlayProps = {
     };
 };
 
-export function GizmoOverlay(props: GizmoOverlayProps) {
-    const hudHalfWidth = 1.6;
-    const hudHalfHeight = 1.0;
-    const margin = 0.25;
-    const overlayPosition: [number, number, number] = [
-        hudHalfWidth - margin,
-        hudHalfHeight - margin,
-        0,
-    ];
-    const [axisMaterials] = useState<MeshBasicMaterial[]>(
-        [new MeshBasicMaterial({ color: "#ff0000" }), // red
-        new MeshBasicMaterial({ color: "#00ff00" }), // green
-        new MeshBasicMaterial({ color: "#0000ff" })]); // blue
+export function AccelerationComposite(props: AccelerationCompositeProps) {
     const [barColors] = useState<number[]>(
         [0xff5555, 0x55ff55, 0x5599ff]); // r, g, b
     const [triad] =
@@ -61,60 +49,37 @@ export function GizmoOverlay(props: GizmoOverlayProps) {
         return arrowLength;
     };
 
-    const [xAccel, setXAccel] = useState<number>(0);
-    const [yAccel, setYAccel] = useState<number>(0);
-    const [zAccel, setZAccel] = useState<number>(0);
-    const [xAccelArrow, setXAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
-        new Vector3(1, 0, 0).normalize(),
-        new Vector3(0, 0, 0),
-        xAccel,
-        barColors[0],
-    ));
-    const [yAccelArrow, setYAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
-        new Vector3(0, 1, 0).normalize(),
-        new Vector3(0, 0, 0),
-        yAccel,
-        barColors[1],
-    ));
-    const [zAccelArrow, setZAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
-        new Vector3(0, 0, 1).normalize(),
-        new Vector3(0, 0, 0),
-        zAccel,
-        barColors[2],
-    ));
-
-    useEffect(() => {
-        setXAccel(accelArrowLen(props.acceleration.x));
-        setYAccel(accelArrowLen(props.acceleration.y));
-        setZAccel(accelArrowLen(props.acceleration.z));
-    }, [props.acceleration]);
-
-    const clamp = (value: number, min: number, max: number): number => {
+        const clamp = (value: number, min: number, max: number): number => {
         return Math.min(Math.max(value, min), max);
     };
 
+    const [compositeAccel, setCompositeAccel] = useState<Vector3>(new Vector3());
+    const [compositeAccelArrow, setCompositeAccelArrow] = useState<ArrowHelper>(
+        new ArrowHelper(
+            compositeAccel.clone().normalize(),
+            new Vector3(),
+            clamp(compositeAccel.length(), 0, props.settings.maxMs2 ** 2),
+            0xffffff
+        )
+    );
+
     useEffect(() => {
-        const headLen = 0.4;
-        const headWidth = 0.2;
-        const xAccelArrowParams: [number, number, number] = [
-            clamp(xAccel, 0, props.settings.maxMs2),
-            headLen, headWidth
-        ];
-        const yAccelArrowParams: [number, number, number] = [
-            clamp(yAccel, 0, props.settings.maxMs2),
-            headLen, headWidth
-        ];
-        const zAccelArrowParams: [number, number, number] = [
-            clamp(zAccel, 0, props.settings.maxMs2),
-            headLen, headWidth
-        ];
-        xAccelArrow.setLength(...xAccelArrowParams);
-        yAccelArrow.setLength(...yAccelArrowParams);
-        zAccelArrow.setLength(...zAccelArrowParams);
-        setXAccelArrow(xAccelArrow);
-        setYAccelArrow(yAccelArrow);
-        setZAccelArrow(zAccelArrow);
-    }, [xAccel, yAccel, zAccel]);
+        const newCompositeArrow = new ArrowHelper(
+            compositeAccel.clone().normalize(),
+            new Vector3(0, 0, 0),
+            clamp(compositeAccel.length(), 0, props.settings.maxMs2 ** 2),
+            0xffffff
+        );
+        setCompositeAccelArrow(newCompositeArrow);
+    }, [compositeAccel]);
+
+    useEffect(() => {
+        const xComp = new Vector3(props.acceleration.x, 0, 0);
+        const yComp = new Vector3(0, props.acceleration.y, 0);
+        const zComp = new Vector3(0, 0, props.acceleration.z);
+        const compositeVector = xComp.add(yComp).add(zComp);
+        setCompositeAccel(compositeVector);
+    }, [props.acceleration]);
 
     const deg2rad = (degrees: number): number => {
         return degrees * (Math.PI / 180);
@@ -198,9 +163,7 @@ export function GizmoOverlay(props: GizmoOverlayProps) {
             triadState.roll
         ]}>
             <primitive object={triad} />
-            {xAccel > 0.1 && <primitive object={xAccelArrow} />}
-            {yAccel > 0.1 && <primitive object={yAccelArrow} />}
-            {zAccel > 0.1 && <primitive object={zAccelArrow} />}
+            {compositeAccel.length() > 0.1 && <primitive object={compositeAccelArrow} />}
         </mesh>
     );
 }

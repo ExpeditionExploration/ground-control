@@ -11,7 +11,7 @@ import { Wrench as ControlWrench } from 'src/modules/control/types';
 import { Payload } from 'src/connection';
 import { AngleStatus } from '../types';
 import { TOFArray } from './components/TOFArray';
-import { GizmoOverlay, GizmoOverlayProps } from './components/GizmoOverlay';
+import { AccelerationComponents, AccelerationComponentsProps } from './components/AccelerationComponents';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
@@ -30,6 +30,7 @@ interface DroneProps {
 }
 
 import { useThree } from '@react-three/fiber';
+import { AccelerationComposite } from './components/AccelerationComposite';
 
 function Drone(props: DroneProps) {
     const obj = useLoader(OBJLoader, './drone.obj');
@@ -449,7 +450,7 @@ export function App() {
         forward: [0, 0, 0]
     });
 
-    const gizmoProps: GizmoOverlayProps = {
+    const accelerationGizmoProps: AccelerationComponentsProps = {
         acceleration: {
             x: acceleration[0],
             y: acceleration[1],
@@ -534,19 +535,36 @@ export function App() {
                 </EffectComposer> */}
             </View>
 
+            {/* Components of acceleration on three axes */}
             <View
                 index={2}
-                className="acceleration-view absolute top-0 left-0"
-                style={{ height: `25%`, width: `25%` }}>
+                className="acceleration-view h-[25%] w-[25%] absolute top-0 left-0">
                 <>
                     <PerspectiveCamera
                         makeDefault={true}
                         fov={50}
                         lookAt={[0, 0, 0]} />
-                    <GizmoOverlay
-                        acceleration={gizmoProps.acceleration}
-                        droneOrientation={gizmoProps.droneOrientation}
-                        settings={gizmoProps.settings}
+                    <AccelerationComponents
+                        acceleration={accelerationGizmoProps.acceleration}
+                        droneOrientation={accelerationGizmoProps.droneOrientation}
+                        settings={accelerationGizmoProps.settings}
+                        cameraOrientation={cameraOrientation} />
+                </>
+            </View>
+
+            {/* Composite of components of acceleration as single vector */}
+            <View
+                index={3}
+                className="acceleration-view h-[25%] w-[25%] absolute top-[25%] left-0">
+                <>
+                    <PerspectiveCamera
+                        makeDefault={true}
+                        fov={50}
+                        lookAt={[0, 0, 0]} />
+                    <AccelerationComposite
+                        acceleration={accelerationGizmoProps.acceleration}
+                        droneOrientation={accelerationGizmoProps.droneOrientation}
+                        settings={accelerationGizmoProps.settings}
                         cameraOrientation={cameraOrientation} />
                 </>
             </View>
