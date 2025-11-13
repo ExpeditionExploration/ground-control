@@ -99,7 +99,7 @@ export function AccelerationComposite(props: AccelerationCompositeProps) {
 
     useEffect(() => {
         if (!props.cameraOrientation || !props.droneOrientation) {
-            console.log(`Missing orientations:`, props.cameraOrientation, props.droneOrientation)
+            return;
         };
 
         const droneYPR = new Euler(

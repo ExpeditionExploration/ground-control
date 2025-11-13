@@ -11,3 +11,5 @@ export interface Speed {
     z: number,
     timestamp: number,
 }
+
+export type Location = [number, number, number]

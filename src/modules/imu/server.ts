@@ -5,6 +5,9 @@ import * as opengpio from 'opengpio';
 import { TriAxisIntegrator } from './class/TriAxisIntegrator';
 import { SpeedKeeper } from './class/SpeedKeeper';
 import { Euler, Vector3 } from 'three';
+import { LocationKeeper } from './class/LocationKeeper';
+import { AccelerationUtils } from './class/AccelerationUtils';
+import { Location } from './types';
 
 export class IMUModuleServer extends Module {
 
@@ -13,18 +16,20 @@ export class IMUModuleServer extends Module {
     private accelerationIntegrator = new TriAxisIntegrator()
     private speedKeeper = new SpeedKeeper(
         new TriAxisIntegrator(),
-        new Vector3(0, 0, -1),
-        new Vector3(1, 0, 0),
-        new Vector3(0, 1, 0)
     );
     private currentYpr: [number, number, number] = [0, 0, 0]
     private imu?: IMU
     private speed: [number, number, number] = [0, 0, 0]
 
+    private _locationKeeper?: LocationKeeper = null
+
     onModuleInit(): void | Promise<void> {
         if (!this.config.modules.imu.server.enabled) {
             return;
         }
+        this._locationKeeper = new LocationKeeper(
+            new TriAxisIntegrator()
+        );
         this.imu = new IMU(
             this.config.modules.imu.server.bno085.i2cBus,
             parseInt(this.config.modules.imu.server.bno085.i2cAddr, 16)
@@ -53,17 +58,29 @@ export class IMUModuleServer extends Module {
                 // was taken.
                 const timestamp =
                     +this.toMs(ev.timestampMicroseconds);
+
+                const worldAccel = AccelerationUtils.droneToWorld(
+                    [ev.x, ev.y, ev.z],
+                    new Euler(...this.currentYpr, 'YXZ')
+                );
                 
                 this.speedKeeper.update(
-                    [ev.x, ev.y, ev.z],
-                    new Euler(...this.currentYpr, 'YXZ'),
+                    worldAccel,
                     timestamp,
                 );
-                this.logger.info('emitting speed', {
-                    x: this.speedKeeper.speed.x,
-                    y: this.speedKeeper.speed.y,
-                    z: this.speedKeeper.speed.z,
-                });
+                const worldSpeed = this.speedKeeper.speed;
+
+                this._locationKeeper.update(
+                    worldSpeed,
+                    timestamp,
+                );
+
+                this.emit<Acceleration>('acceleration',
+                    [worldAccel[0],
+                    worldAccel[1],
+                    worldAccel[2],]
+                );
+
                 this.emit<Speed>('speed', {
                     x: this.speedKeeper.speed.x,
                     y: this.speedKeeper.speed.y,
@@ -71,38 +88,43 @@ export class IMUModuleServer extends Module {
                     timestamp,
                 });
 
+                const loc = this._locationKeeper.location;
+
+                this.logger.debug('Emitting location:', loc);
+                this.emit<Location>('location', [loc.x, loc.y, loc.z] as Location);
+
                 // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)
-                const ax = +ev.x, ay = +ev.y, az = +ev.z;
-                const [yaw, pitch, roll] = this.currentYpr;
-                const cy = Math.cos(yaw), sy = Math.sin(yaw);
-                const cp = Math.cos(pitch), sp = Math.sin(pitch);
-                const cr = Math.cos(roll), sr = Math.sin(roll);
+                // const ax = +ev.x, ay = +ev.y, az = +ev.z;
+                // const [yaw, pitch, roll] = this.currentYpr;
+                // const cy = Math.cos(yaw), sy = Math.sin(yaw);
+                // const cp = Math.cos(pitch), sp = Math.sin(pitch);
+                // const cr = Math.cos(roll), sr = Math.sin(roll);
 
-                // Drone local to world
-                const ax_w = ax * (cy * cp) + ay * (cy * sp * sr - sy * cr) + az * (cy * sp * cr + sy * sr)
-                const ay_w = ax * (sy * cp) + ay * (sy * sp * sr + cy * cr) + az * (sy * sp * cr - cy * sr)
-                const az_w = ax * (-sp) + ay * (cp * sr) + az * (cp * cr)
+                // // Drone local to world
+                // const ax_w = ax * (cy * cp) + ay * (cy * sp * sr - sy * cr) + az * (cy * sp * cr + sy * sr)
+                // const ay_w = ax * (sy * cp) + ay * (sy * sp * sr + cy * cr) + az * (sy * sp * cr - cy * sr)
+                // const az_w = ax * (-sp) + ay * (cp * sr) + az * (cp * cr)
 
-                // remap sensor axes to align with world axes
-                const world: [number, number, number] = [ax_w, az_w, -ay_w]
-                // this.logger.debug('Linear acceleration', ev)
-                this.emit<Acceleration>('acceleration', world as Acceleration)
+                // // remap sensor axes to align with world axes
+                // const world: [number, number, number] = [ax_w, az_w, -ay_w]
+                // // this.logger.debug('Linear acceleration', ev)
+                // this.emit<Acceleration>('acceleration', world as Acceleration)
 
-                const dv = this.accelerationIntegrator.integrate(world, timestamp)
-                // Accumulate delta-v into current speed
-                this.speed = [
-                    this.speed[0] + dv[0],
-                    this.speed[1] + dv[1],
-                    this.speed[2] + dv[2],
-                ]
+                // const dv = this.accelerationIntegrator.integrate(world, timestamp)
+                // // Accumulate delta-v into current speed
+                // this.speed = [
+                //     this.speed[0] + dv[0],
+                //     this.speed[1] + dv[1],
+                //     this.speed[2] + dv[2],
+                // ]
 
-                this.logger.info(`Total speed: ${(this.speed.reduce((a, b) => a + b * b, 0) ** 0.5).toFixed(2)} m/s`);
-                // this.emit<Speed>("speed", {
-                //     x: this.speed[0],
-                //     y: this.speed[1],
-                //     z: this.speed[2],
-                //     timestamp,
-                // })
+                // this.logger.info(`Total speed: ${(this.speed.reduce((a, b) => a + b * b, 0) ** 0.5).toFixed(2)} m/s`);
+                // // this.emit<Speed>("speed", {
+                // //     x: this.speed[0],
+                // //     y: this.speed[1],
+                // //     z: this.speed[2],
+                // //     timestamp,
+                // // })
                 break;
 
             case SensorId.SH2_ROTATION_VECTOR:

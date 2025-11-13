@@ -71,7 +71,6 @@ export function SpeedComposite(props: SpeedCompositeProps) {
         const arrowLength = (clampedTotalSpeed / maxSpeed) * props.settings.maxArrowLength;
         const unitSpeedVec = speed.clone().normalize();
         const speedVecForArrow = unitSpeedVec.clone().multiplyScalar(arrowLength);
-        console.log(`SpeedComposite: speed=[${speed.x}, ${speed.y}, ${speed.z}], arrowLen=${arrowLength.toFixed(2)} units`);
         setCompositeSpeed(speedVecForArrow);
     }, [props.speed]);
 
@@ -93,7 +92,7 @@ export function SpeedComposite(props: SpeedCompositeProps) {
 
     useEffect(() => {
         if (!props.cameraOrientation || !props.droneOrientation) {
-            console.log(`Missing orientations:`, props.cameraOrientation, props.droneOrientation)
+            return;
         };
 
         const droneYPR = new Euler(
