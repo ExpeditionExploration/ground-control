@@ -86,8 +86,9 @@ export class ControlModuleServer extends Module {
             }),
         };
         this.setupMotors();
-        this.emitWrenchContinuously();
+        // this.emitWrenchContinuously();
 
+        if (false) {
         this.broadcaster.on('*:*', (data: Payload) => {
             if (data.namespace !== 'drone-remote-control') {
                 return;
@@ -104,6 +105,7 @@ export class ControlModuleServer extends Module {
                 this.applyRemoteCommand(command, false);
             }, 100);
         });
+        }
     }
 
     private applyRemoteCommand(command: keyof typeof this.remoteCommandStates, active: boolean) {
@@ -139,8 +141,8 @@ export class ControlModuleServer extends Module {
     const physical = Object.values(this.physicalMotors);
 
         // Initialize virtual and physical motors
-        await Promise.all(virtual.map((m) => m.init()));
-        await Promise.all(physical.map((m) => m.init()));
+        //await Promise.all(virtual.map((m) => m.init()));
+        //await Promise.all(physical.map((m) => m.init()));
 
         // Compute linear mapping from virtual motors to physical motors
         let mappingMatrix = [];
