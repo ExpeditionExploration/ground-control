@@ -52,7 +52,7 @@ export class MediaModuleClient extends Module {
                 console.warn('LiveKit room not connected, skipping publishData');
                 return;
             }
-            console.log('Broadcast received in MediaModuleClient. Emitting', data);
+            // console.log('Broadcast received in MediaModuleClient. Emitting', data);
             this.liveKitRoom.localParticipant.publishData(
                 this.encoder.encode(JSON.stringify(data)),
             ).catch((error) => {
