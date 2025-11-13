@@ -99,4 +99,49 @@ export class ECMMotorState extends MotorState {
             }
         }, 100);
     }
+
+    setPower(power: number): void {
+        super.setPower(power);
+        this.power = this.targetPower;
+        if (Math.abs(this.targetPower - this.power) < 0.1) {
+            this.power = this.targetPower; // Snap to target if close enough
+        }
+        if (typeof this.gpioOutPWM !== 'undefined') {
+            let dutyCycle = Math.abs(this.power);
+            if (this.invertPWM) {
+                dutyCycle = 1 - dutyCycle;
+            }
+            if (this.invertPWMWithDirection && this.power < 0) {
+                dutyCycle = 1 - dutyCycle;
+            }
+            if (this.gpioOutPWM instanceof Pwm) {
+                this.gpioOutPWM.setDutyCycle(dutyCycle);
+            }
+            else {
+                this.pwmModule?.setDutyCycle(this.gpioOutPWM, dutyCycle);
+            }
+            if (typeof this.gpioOutReverse !== 'undefined') {
+                let reverse = this.power < 0;
+                if (this.invertRotationDirection) {
+                    reverse = this.power > 0;
+                }
+                if (this.gpioOutReverse instanceof Output) {
+                    this.gpioOutReverse.value = reverse;
+                }
+                else {
+                    this.pwmModule?.setDutyCycle(this.gpioOutReverse, reverse ? 1 : 0);
+                }
+            }
+            if (typeof this.gpioOutStop !== 'undefined') {
+                if (this.gpioOutStop instanceof Output) {
+                    this.gpioOutStop.value = this.power != 0;
+                }
+                else {
+                    this.pwmModule?.setDutyCycle(this.gpioOutStop, this.power != 0 ? 1 : 0);
+                }
+            }
+        }
+        this.emit('setPower', this.power);
+
+    }
 }
