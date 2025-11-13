@@ -141,7 +141,7 @@ export class ControlModuleClient extends Module {
         window.addEventListener('keyup', this.keyUpHandler);
 
         // Regular polling for gamepad updates (includes keyboard overrides)
-        this.pollHandle = window.setInterval(this.pollGamepad, 20); // 50Hz
+        this.pollHandle = window.setInterval(this.pollGamepad, 250); // 50Hz
     }
 
     onModuleDestroy(): void {
