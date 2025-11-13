@@ -36,25 +36,33 @@ export const PathSpheres = forwardRef<PathSpheresApi, PathSpheresProps>(
 
         useImperativeHandle(ref, () => ({
             add: sphere => {
-                let newSphere = sphere;
-                if (sphere.uuid === undefined) {
-                    // Generate UUID
-                    newSphere = {
-                        ...sphere,
-                        uuid: uuid_v4(),
-                    };
-                }
-                setSpheres(prev =>
-                    [...prev, newSphere].slice(-settings.maxSpheres),
+                const distance = new Vector3(...sphere.position).distanceTo(
+                    new Vector3(...(spheres[spheres.length - 1] ?? sphere).position)
                 );
+                if (spheres.length === 0 || distance >= settings.sphereTravelDistanceMeters) {
+                    // Generate UUID if not provided.
+                    let newSphere = sphere;
+                    if (!sphere.uuid) {
+                        newSphere = {
+                            ...sphere,
+                            uuid: uuid_v4(),
+                        };
+                    }
+                    setSpheres(prev =>
+                        [...prev, newSphere].slice(0, settings.maxSpheres)
+                    );
+                }
             },
+
             getPrevious: (): [number, number, number] | null => {
                 if (spheres.length < 1) {
                     return null;
                 }
                 return spheres[spheres.length - 1].position;
             },
+
             clear: () => setSpheres([]),
+            
             getSettings: () => settings,
         }), [settings.maxSpheres]);
 

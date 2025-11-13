@@ -585,8 +585,8 @@ export function App() {
                 <PathSpheres
                     settings={{
                         maxSpheres: 500,
-                        sphereTravelDistanceMeters: 0.2,
-                        radiusMeters: 0.05,
+                        sphereTravelDistanceMeters: 0.3,
+                        radiusMeters: 0.025,
                     }}
                     ref={spheresApiRef}
                 />
