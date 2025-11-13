@@ -53,6 +53,8 @@
                 "gpioOutReverse": 9,
                 "gpioOutStop": 12, // [OrangePi_5.output(OrangePi_5.bcm.GPIO1_A4),
                 "invertPWM": true,
+                "invertRotationDirection": true,
+                "invertPWMWithDirection": false,
                 "position": [0.00, 0.00, -29.2303],
                 "orientation": [0, 0, 1], // Right-hand rule (Z forward)
             },
