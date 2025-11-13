@@ -105,11 +105,11 @@
     },
     "imu": {
         "server": {
-            "enabled": false,
+            "enabled": true,
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
                 // "i2cBus": 1, // OrangePi_5
-                "i2cBus": 1, // RaspberryPi_5B
+                "i2cBus": 2, // RaspberryPi_5B
                 "i2cAddr": "0x4b",
                 "useInterrupts": true,
                 // From opengpio library use device-specific bcm pin names.
