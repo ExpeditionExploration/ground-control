@@ -178,11 +178,11 @@ export class ControlModuleServer extends Module {
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 1],
             [-1, 1, -1, 1, 0],
-            [1, 1, -1, -1, 1], // Instead of Pitch achieve Heave (for initial testing)
+            [1, 1, -1, -1, 0], // Instead of Pitch achieve Heave (for initial testing)
             [-1, 1, 1, -1, 0],
         ];
-        let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
-        inverseMappingMatrix = transpose(mappingMatrix); // Simplify 5-motor configuration (for initial testing)
+        // let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
+        let inverseMappingMatrix = transpose(mappingMatrix); // Simplify 5-motor configuration (for initial testing)
         this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
         this.virtualToPhysical = {};
         const virtualKeys = Object.keys(this.virtualMotors);
