@@ -2,20 +2,34 @@ import { Module } from 'src/module';
 import { IMU, SensorEvent, SensorId } from './class/IMU'; // SensorEvent comes from IMU
 import { Acceleration, Orientation, Speed } from './types';
 import * as opengpio from 'opengpio';
+import { TriAxisIntegrator } from './class/TriAxisIntegrator';
+import { SpeedKeeper } from './class/SpeedKeeper';
+import { Euler, Vector3 } from 'three';
+import { LocationKeeper } from './class/LocationKeeper';
+import { AccelerationUtils } from './class/AccelerationUtils';
+import { Location } from './types';
 
 export class IMUModuleServer extends Module {
 
     private samplingInterval = 20
 
     private accelerationIntegrator = new TriAxisIntegrator()
+    private speedKeeper = new SpeedKeeper(
+        new TriAxisIntegrator(),
+    );
     private currentYpr: [number, number, number] = [0, 0, 0]
     private imu?: IMU
     private speed: [number, number, number] = [0, 0, 0]
+
+    private _locationKeeper?: LocationKeeper = null
 
     onModuleInit(): void | Promise<void> {
         if (!this.config.modules.imu.server.enabled) {
             return;
         }
+        this._locationKeeper = new LocationKeeper(
+            new TriAxisIntegrator()
+        );
         this.imu = new IMU(
             this.config.modules.imu.server.bno085.i2cBus,
             parseInt(this.config.modules.imu.server.bno085.i2cAddr, 16)
@@ -43,38 +57,74 @@ export class IMUModuleServer extends Module {
                 // Don't add delay. Timestamp is sensor's timestamp the sample
                 // was taken.
                 const timestamp =
-                    +this.toMs(ev.timestampMicroseconds)
+                    +this.toMs(ev.timestampMicroseconds);
+
+                const worldAccel = AccelerationUtils.droneToWorld(
+                    [ev.x, ev.y, ev.z],
+                    new Euler(...this.currentYpr, 'YXZ')
+                );
+                
+                this.speedKeeper.update(
+                    worldAccel,
+                    timestamp,
+                );
+                const worldSpeed = this.speedKeeper.speed;
+
+                this._locationKeeper.update(
+                    worldSpeed,
+                    timestamp,
+                );
+
+                this.emit<Acceleration>('acceleration',
+                    [worldAccel[0],
+                    worldAccel[1],
+                    worldAccel[2],]
+                );
+
+                this.emit<Speed>('speed', {
+                    x: this.speedKeeper.speed.x,
+                    y: this.speedKeeper.speed.y,
+                    z: this.speedKeeper.speed.z,
+                    timestamp,
+                });
+
+                const loc = this._locationKeeper.location;
+
+                this.logger.debug('Emitting location:', loc);
+                this.emit<Location>('location', [loc.x, loc.y, loc.z] as Location);
 
                 // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)
-                const ax = +ev.x, ay = +ev.y, az = +ev.z;
-                const [yaw, pitch, roll] = this.currentYpr;
-                const cy = Math.cos(yaw), sy = Math.sin(yaw);
-                const cp = Math.cos(pitch), sp = Math.sin(pitch);
-                const cr = Math.cos(roll), sr = Math.sin(roll);
+                // const ax = +ev.x, ay = +ev.y, az = +ev.z;
+                // const [yaw, pitch, roll] = this.currentYpr;
+                // const cy = Math.cos(yaw), sy = Math.sin(yaw);
+                // const cp = Math.cos(pitch), sp = Math.sin(pitch);
+                // const cr = Math.cos(roll), sr = Math.sin(roll);
 
-                // Drone local to world
-                const ax_w = ax * (cy * cp) + ay * (cy * sp * sr - sy * cr) + az * (cy * sp * cr + sy * sr)
-                const ay_w = ax * (sy * cp) + ay * (sy * sp * sr + cy * cr) + az * (sy * sp * cr - cy * sr)
-                const az_w = ax * (-sp) + ay * (cp * sr) + az * (cp * cr)
+                // // Drone local to world
+                // const ax_w = ax * (cy * cp) + ay * (cy * sp * sr - sy * cr) + az * (cy * sp * cr + sy * sr)
+                // const ay_w = ax * (sy * cp) + ay * (sy * sp * sr + cy * cr) + az * (sy * sp * cr - cy * sr)
+                // const az_w = ax * (-sp) + ay * (cp * sr) + az * (cp * cr)
 
-                // remap sensor axes to align with world axes
-                const world: [number, number, number] = [ax_w, az_w, -ay_w]
-                // this.logger.debug('Linear acceleration', ev)
-                this.emit<Acceleration>('acceleration', world as Acceleration)
+                // // remap sensor axes to align with world axes
+                // const world: [number, number, number] = [ax_w, az_w, -ay_w]
+                // // this.logger.debug('Linear acceleration', ev)
+                // this.emit<Acceleration>('acceleration', world as Acceleration)
 
-                const dv = this.accelerationIntegrator.integrate(world, timestamp)
-                // Accumulate delta-v into current speed
-                this.speed = [
-                    this.speed[0] + dv[0],
-                    this.speed[1] + dv[1],
-                    this.speed[2] + dv[2],
-                ]
-                this.emit<Speed>("speed", {
-                    x: this.speed[0],
-                    y: this.speed[1],
-                    z: this.speed[2],
-                    timestamp,
-                })
+                // const dv = this.accelerationIntegrator.integrate(world, timestamp)
+                // // Accumulate delta-v into current speed
+                // this.speed = [
+                //     this.speed[0] + dv[0],
+                //     this.speed[1] + dv[1],
+                //     this.speed[2] + dv[2],
+                // ]
+
+                // this.logger.info(`Total speed: ${(this.speed.reduce((a, b) => a + b * b, 0) ** 0.5).toFixed(2)} m/s`);
+                // // this.emit<Speed>("speed", {
+                // //     x: this.speed[0],
+                // //     y: this.speed[1],
+                // //     z: this.speed[2],
+                // //     timestamp,
+                // // })
                 break;
 
             case SensorId.SH2_ROTATION_VECTOR:
@@ -89,36 +139,5 @@ export class IMUModuleServer extends Module {
 
     private toMs = (us: bigint): number => {
         return Number(us / 1000n)
-    }
-}
-
-class TrapezoidalIntegrator {
-    private lastValue?: number
-    private previousTimestamp?: number
-
-    integrate(value: number, timestamp: number): number {
-        let result = 0
-        if (this.lastValue !== undefined) {
-            const min = Math.min(this.lastValue, value)
-            const max = Math.max(this.lastValue, value)
-            result = ((min) + ((max - min) * 0.5)) * (timestamp - this.previousTimestamp) / 1000
-        }
-        this.lastValue = value
-        this.previousTimestamp = timestamp
-        return result
-    }
-}
-
-class TriAxisIntegrator {
-    private x = new TrapezoidalIntegrator()
-    private y = new TrapezoidalIntegrator()
-    private z = new TrapezoidalIntegrator()
-
-    integrate(value: [number, number, number], timestamp: number): [number, number, number] {
-        return [
-            this.x.integrate(value[0], timestamp),
-            this.y.integrate(value[1], timestamp),
-            this.z.integrate(value[2], timestamp),
-        ]
     }
 }

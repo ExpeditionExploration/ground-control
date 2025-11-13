@@ -3,8 +3,9 @@ import { SpatialHeaderButton } from './components/SpatialHeaderButton';
 import { UserInterface } from 'src/client/user-interface';
 import { ClientModuleDependencies } from 'src/client/client';
 import { Payload } from 'src/connection';
-import { Orientation, Acceleration } from '../imu/types';
+import { Orientation, Acceleration, Location } from '../imu/types';
 import { AngleStatus } from './types';
+import { Speed } from '../imu/types';
 
 
 export class SpatialModuleClient extends Module {
@@ -23,7 +24,6 @@ export class SpatialModuleClient extends Module {
     }
 
     onModuleInit(): void | Promise<void> {
-        console.log('Spatial Module Client Initialized');
         this.userInterface.addFooterItem(SpatialHeaderButton);
 
         this.broadcaster.on('imu:orientation', (payload: Payload) => {
@@ -37,10 +37,34 @@ export class SpatialModuleClient extends Module {
                 namespace: 'angle',
                 data: angleStatus,
             });
-        })
+        });
 
-        this.broadcaster.on('location:location', (payload: Payload) => {
-            this.sendStatusPayloadToWindow(payload);
+        this.broadcaster.on('imu:acceleration', (payload: Payload) => {
+            const imuAcceleration = payload.data as Acceleration;
+            this.sendStatusPayloadToWindow({
+                event: 'acceleration',
+                namespace: 'acceleration',
+                data: imuAcceleration,
+            });
+        });
+
+        this.broadcaster.on('imu:speed', (payload: Payload) => {
+            const imuSpeed = payload.data as Speed;
+            this.sendStatusPayloadToWindow({
+                event: 'speed',
+                namespace: 'speed',
+                data: imuSpeed,
+            });
+        });
+
+        this.broadcaster.on('imu:location', (payload: Payload) => {
+            this.logger.info('Seinding imu:location to spatial:', payload);
+            const imuLocation = payload.data as Location;
+            this.sendStatusPayloadToWindow({
+                event: 'location',
+                namespace: 'location',
+                data: imuLocation,
+            });
         });
 
         this.broadcaster.on('control:wrench', (payload: Payload) => {
@@ -74,7 +98,6 @@ export class SpatialModuleClient extends Module {
         window.open(windowUrl, "spatialWindow", 'width=800,height=600');
         this.logger.info("Spatial window opened; Set interval to transmit config.");
         const data = {...this.config.modules};
-        console.log("Transmitting settings:", data);
         this.spatialWindowSettingsInterval = setInterval(() => {
             this.sendStatusPayloadToWindow({
                 event: 'settings',

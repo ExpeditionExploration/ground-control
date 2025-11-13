@@ -50,6 +50,7 @@
         "serve": "^14.2.4",
         "systeminformation": "^5.27.1",
         "tailwind-merge": "^3.3.0",
+        "uuid": "^13.0.0",
         "vite-plugin-node-polyfills": "^0.23.0",
         "vl53l5cx": "github:ExpeditionExploration/openi2c-VL53L5CX",
         "ws": "^8.18.2",
