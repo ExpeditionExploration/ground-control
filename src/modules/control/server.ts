@@ -178,7 +178,7 @@ export class ControlModuleServer extends Module {
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 1],
             [-1, 1, -1, 1, 0],
-            [1, 1, -1, -1, 1],
+            [1, 1, -1, -1, 1], // Instead of Pitch achieve Heave (for initial testing)
             [-1, 1, 1, -1, 0],
         ];
         let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
