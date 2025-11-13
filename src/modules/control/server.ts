@@ -173,22 +173,16 @@ export class ControlModuleServer extends Module {
         }
         mappingMatrix = transpose(mappingMatrix);
         this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
-        mappingMatrix = [
+        mappingMatrix = [ // Simplify 5-motor configuration (for initial testing)
             [1, 1, 1, 1, 0],
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 1],
-            [-1, 1, 1, -1, 0],
-            [1, 1, -1, -1, 1],
             [-1, 1, -1, 1, 0],
+            [1, 1, -1, -1, 1],
+            [-1, 1, 1, -1, 0],
         ];
         let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
-        inverseMappingMatrix = [
-            [1, 0, 0, -1, 1, -1],
-            [1, 0, 0, 1, 1, 1],
-            [1, 0, 0, 1, -1, -1],
-            [1, 0, 0, -1, -1, 1],
-            [0, 0, 1, 0, 1, 0],
-        ];
+        inverseMappingMatrix = transpose(mappingMatrix); // Simplify 5-motor configuration (for initial testing)
         this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
         this.virtualToPhysical = {};
         const virtualKeys = Object.keys(this.virtualMotors);
