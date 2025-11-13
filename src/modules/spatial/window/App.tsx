@@ -421,16 +421,16 @@ export function App() {
 
             switch (payload.namespace) {
                 case 'location':
-                    setDronePosition(payload.data as Location);
+                    // TODO: Fix it. Location is multiplied by 100 here to make
+                    // it position visually more correctly.
+                    const loc = payload.data.map(x => x * 10) as [number, number, number];
+                    setDronePosition(loc);
                     break;
                 case 'speed':
-                    // TODO: This multiplication hack is to compensate for drone scaling from cad using mm as its unit.
-                    // Meanwhile Threejs unit has been considered as meter.
-                    // Fix this proper later.
                     const speed = new Vector3(
-                        (payload.data as Speed).x * 100,
-                        (payload.data as Speed).y * 100,
-                        (payload.data as Speed).z * 100,
+                        (payload.data as Speed).x,
+                        (payload.data as Speed).y,
+                        (payload.data as Speed).z,
                     );
                     const timestamp = (payload.data as Speed).timestamp;
                     setSpeed({ speed, timestamp });
