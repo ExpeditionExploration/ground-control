@@ -4,6 +4,7 @@ import {
 import { Sphere } from '@react-three/drei';
 import { Vector3 } from 'three';
 import { v4 as uuid_v4 } from 'uuid';
+import { useRingBuffer } from '../hooks/useRingBuffer';
 
 export interface PathSpheresApi {
     add: (sphere: SphereData) => void,
@@ -32,14 +33,14 @@ export interface PathSpheresProps {
 
 export const PathSpheres = forwardRef<PathSpheresApi, PathSpheresProps>(
     ({ settings }, ref) => {
-        const [spheres, setSpheres] = useState<SphereData[]>([]);
+        const spheresBuffer = useRingBuffer<SphereData>(settings.maxSpheres);
 
         useImperativeHandle(ref, () => ({
             add: sphere => {
                 const distance = new Vector3(...sphere.position).distanceTo(
-                    new Vector3(...(spheres[spheres.length - 1] ?? sphere).position)
+                    new Vector3(...spheresBuffer.getHeadItem()?.position ?? sphere.position)
                 );
-                if (spheres.length === 0 || distance >= settings.sphereTravelDistanceMeters) {
+                if (spheresBuffer.numItemsInBuffer() === 0 || distance >= settings.sphereTravelDistanceMeters) {
                     // Generate UUID if not provided.
                     let newSphere = sphere;
                     if (!sphere.uuid) {
@@ -48,27 +49,25 @@ export const PathSpheres = forwardRef<PathSpheresApi, PathSpheresProps>(
                             uuid: uuid_v4(),
                         };
                     }
-                    setSpheres(prev =>
-                        [...prev, newSphere].slice(0, settings.maxSpheres)
-                    );
+                    spheresBuffer.add(newSphere);
                 }
             },
 
             getPrevious: (): [number, number, number] | null => {
-                if (spheres.length < 1) {
+                if (spheresBuffer.numItemsInBuffer() < 1) {
                     return null;
                 }
-                return spheres[spheres.length - 1].position;
+                return spheresBuffer.getHeadItem()?.position ?? null;
             },
 
-            clear: () => setSpheres([]),
+            clear: () => spheresBuffer.clear(),
             
             getSettings: () => settings,
         }), [settings.maxSpheres]);
 
         return (
             <>
-                {spheres.map((sphereData) => (
+                {spheresBuffer.getBuffer().map((sphereData) => (
                     <Sphere
                         key={sphereData.uuid}
                         args={[settings.radiusMeters, 8, 8]}

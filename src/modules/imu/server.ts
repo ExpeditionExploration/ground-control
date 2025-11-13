@@ -104,6 +104,7 @@ export class IMUModuleServer extends Module {
 
                 const loc = this._locationKeeper.location;
 
+                // this.logger.debug('Emitting location:', loc);
                 this.emit<Location>('location', [loc.x, loc.y, loc.z] as Location);
 
                 // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)

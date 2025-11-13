@@ -15,7 +15,8 @@ export class AccelerationUtils {
         const [yawAxis, pitchAxis, rollAxis] = ['y', 'x', 'z'];
 
         // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)
-        const ax = +droneAcceleration[0], ay = +droneAcceleration[1], az = +droneAcceleration[2];
+        // Changed Y-axis to negative to account for IMU orientation.
+        const ax = +droneAcceleration[0], ay = -droneAcceleration[1], az = +droneAcceleration[2];
         const [yaw, pitch, roll] = [droneOrientation[yawAxis], droneOrientation[pitchAxis], droneOrientation[rollAxis]];
         const cy = Math.cos(yaw), sy = Math.sin(yaw);
         const cp = Math.cos(pitch), sp = Math.sin(pitch);
