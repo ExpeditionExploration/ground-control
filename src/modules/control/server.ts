@@ -174,11 +174,11 @@ export class ControlModuleServer extends Module {
         mappingMatrix = transpose(mappingMatrix);
         this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
         mappingMatrix = [ // Simplify 5-motor configuration (for initial testing)
-            [1, 1, 1, 1, 0],
+            [1, 1, -1, -1, 0],
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 1],
-            [-1, 1, -1, 1, 0],
-            [1, 1, -1, -1, 0], // Instead of Pitch achieve Heave (for initial testing)
+            [1, -1, 1, -1, 0],
+            [1, 1, 1, 1, 0],
             [-1, 1, 1, -1, 0],
         ];
         // let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
