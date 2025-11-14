@@ -65,8 +65,11 @@ export class IMUModuleServer extends Module {
                 const timestamp =
                     +this.toMs(ev.timestampMicroseconds);
 
+                // const ypr = [ev.pitch + Math.PI, ev.yaw, -ev.roll] // Remap axes
+
                 const worldAccel = AccelerationUtils.droneToWorld(
-                    [ev.z, ev.x, -ev.y],
+                    // [ev.z, ev.x, -ev.y],
+                    [ev.x, ev.y, ev.z],
                     new Euler(...this.currentYpr, 'YXZ')
                 );
                 // const worldAccel: Acceleration = [

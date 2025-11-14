@@ -40,69 +40,79 @@ export function AccelerationComponents(props: AccelerationComponentsProps) {
     const [triad] =
         useState<AxesHelper>(new AxesHelper(props.settings.maxArrowLength));
 
+    const clamp = (value: number, min: number, max: number): number => {
+        return Math.min(Math.max(value, min), max);
+    };
+
     // Normalize accelerations to be between 0 and maxMs2
     const accelArrowLen = (accel: number) => {
         const maxAccel = props.settings.maxMs2;
-        const clampedAccel = clamp(accel, 0.01, maxAccel);
+        const clampedAccel = clamp(accel, 0, maxAccel);
         const factor = clamp(clampedAccel / maxAccel, 0, 1);
         const arrowLength = factor * props.settings.maxArrowLength;
         return arrowLength;
     };
 
-    const [xAccel, setXAccel] = useState<number>(0);
-    const [yAccel, setYAccel] = useState<number>(0);
-    const [zAccel, setZAccel] = useState<number>(0);
+    const [xAccelMag, setXAccelMag] = useState<number>(0);
+    const [yAccelMag, setYAccelMag] = useState<number>(0);
+    const [zAccelMag, setZAccelMag] = useState<number>(0);
+    const [xAccelSign, setXAccelSign] = useState<number>(1);
+    const [yAccelSign, setYAccelSign] = useState<number>(1);
+    const [zAccelSign, setZAccelSign] = useState<number>(1);
     const [xAccelArrow, setXAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
         new Vector3(1, 0, 0).normalize(),
         new Vector3(0, 0, 0),
-        xAccel,
+        xAccelMag,
         barColors[0],
     ));
     const [yAccelArrow, setYAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
         new Vector3(0, 1, 0).normalize(),
         new Vector3(0, 0, 0),
-        yAccel,
+        yAccelMag,
         barColors[1],
     ));
     const [zAccelArrow, setZAccelArrow] = useState<ArrowHelper>(new ArrowHelper(
         new Vector3(0, 0, 1).normalize(),
         new Vector3(0, 0, 0),
-        zAccel,
+        zAccelMag,
         barColors[2],
     ));
 
     useEffect(() => {
-        setXAccel(accelArrowLen(props.acceleration.x));
-        setYAccel(accelArrowLen(props.acceleration.y));
-        setZAccel(accelArrowLen(props.acceleration.z));
+        const signed = (value: number) => (value === 0 ? 1 : Math.sign(value));
+        setXAccelMag(accelArrowLen(Math.abs(props.acceleration.x)));
+        setYAccelMag(accelArrowLen(Math.abs(props.acceleration.y)));
+        setZAccelMag(accelArrowLen(Math.abs(props.acceleration.z)));
+        setXAccelSign(signed(props.acceleration.x));
+        setYAccelSign(signed(props.acceleration.y));
+        setZAccelSign(signed(props.acceleration.z));
     }, [props.acceleration]);
-
-    const clamp = (value: number, min: number, max: number): number => {
-        return Math.min(Math.max(value, min), max);
-    };
 
     useEffect(() => {
         const headLen = 0.4;
         const headWidth = 0.2;
         const xAccelArrowParams: [number, number, number] = [
-            clamp(xAccel, 0, props.settings.maxMs2),
+            clamp(xAccelMag, 0, props.settings.maxMs2),
             headLen, headWidth
         ];
         const yAccelArrowParams: [number, number, number] = [
-            clamp(yAccel, 0, props.settings.maxMs2),
+            clamp(yAccelMag, 0, props.settings.maxMs2),
             headLen, headWidth
         ];
         const zAccelArrowParams: [number, number, number] = [
-            clamp(zAccel, 0, props.settings.maxMs2),
+            clamp(zAccelMag, 0, props.settings.maxMs2),
             headLen, headWidth
         ];
+        xAccelArrow.setDirection(new Vector3(xAccelSign < 0 ? -1 : 1, 0, 0).normalize());
         xAccelArrow.setLength(...xAccelArrowParams);
+        yAccelArrow.setDirection(new Vector3(0, yAccelSign < 0 ? -1 : 1, 0).normalize());
         yAccelArrow.setLength(...yAccelArrowParams);
+        zAccelArrow.setDirection(new Vector3(0, 0, zAccelSign < 0 ? -1 : 1).normalize());
         zAccelArrow.setLength(...zAccelArrowParams);
         setXAccelArrow(xAccelArrow);
         setYAccelArrow(yAccelArrow);
         setZAccelArrow(zAccelArrow);
-    }, [xAccel, yAccel, zAccel]);
+    }, [xAccelMag, yAccelMag, zAccelMag, xAccelSign, yAccelSign, zAccelSign]);
 
     const deg2rad = (degrees: number): number => {
         return degrees * (Math.PI / 180);
@@ -186,9 +196,9 @@ export function AccelerationComponents(props: AccelerationComponentsProps) {
             triadState.roll
         ]}>
             <primitive object={triad} />
-            {xAccel > 0.1 && <primitive object={xAccelArrow} />}
-            {yAccel > 0.1 && <primitive object={yAccelArrow} />}
-            {zAccel > 0.1 && <primitive object={zAccelArrow} />}
+            {xAccelMag > 0.1 && <primitive object={xAccelArrow} />}
+            {yAccelMag > 0.1 && <primitive object={yAccelArrow} />}
+            {zAccelMag > 0.1 && <primitive object={zAccelArrow} />}
         </mesh>
     );
 }
