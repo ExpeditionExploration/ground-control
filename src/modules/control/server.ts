@@ -86,8 +86,9 @@ export class ControlModuleServer extends Module {
             }),
         };
         this.setupMotors();
-        this.emitWrenchContinuously();
+        // this.emitWrenchContinuously();
 
+        if (false) {
         this.broadcaster.on('*:*', (data: Payload) => {
             if (data.namespace !== 'drone-remote-control') {
                 return;
@@ -104,6 +105,7 @@ export class ControlModuleServer extends Module {
                 this.applyRemoteCommand(command, false);
             }, 100);
         });
+        }
     }
 
     private applyRemoteCommand(command: keyof typeof this.remoteCommandStates, active: boolean) {
@@ -139,8 +141,8 @@ export class ControlModuleServer extends Module {
     const physical = Object.values(this.physicalMotors);
 
         // Initialize virtual and physical motors
-        await Promise.all(virtual.map((m) => m.init()));
-        await Promise.all(physical.map((m) => m.init()));
+        //await Promise.all(virtual.map((m) => m.init()));
+        //await Promise.all(physical.map((m) => m.init()));
 
         // Compute linear mapping from virtual motors to physical motors
         let mappingMatrix = [];
@@ -170,9 +172,18 @@ export class ControlModuleServer extends Module {
             ]);
         }
         mappingMatrix = transpose(mappingMatrix);
-        // this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
-        let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
-        // this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
+        this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
+        mappingMatrix = [ // Simplify 5-motor configuration (for initial testing)
+            [1, 1, -1, -1, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1],
+            [1, -1, 1, -1, 0],
+            [1, 1, 1, 1, 0],
+            [-1, 1, 1, -1, 0],
+        ];
+        // let inverseMappingMatrix = pinv(mappingMatrix); // To be recomputed if motors change: stuck or broken
+        let inverseMappingMatrix = transpose(mappingMatrix); // Simplify 5-motor configuration (for initial testing)
+        this.logger.info(`Moore-Penrose-inverted mapping matrix: ${JSON.stringify(round(inverseMappingMatrix, 2))}`);
         this.virtualToPhysical = {};
         const virtualKeys = Object.keys(this.virtualMotors);
         const physicalKeys = Object.keys(this.physicalMotors);
@@ -184,7 +195,7 @@ export class ControlModuleServer extends Module {
                 this.virtualToPhysical[physKey][virtKey] = inverseMappingMatrix[i][j];
             }
         }
-        // this.logger.info(`Virtual to physical mapping: ${JSON.stringify(this.virtualToPhysical)}`);
+        this.logger.info(`Virtual to physical mapping: ${JSON.stringify(this.virtualToPhysical)}`);
 
         for (const motor of virtual) {
             motor.on('setPower', (power) => {
@@ -209,6 +220,7 @@ export class ControlModuleServer extends Module {
         yaw.setPower(wrench.yaw);
         pitch.setPower(wrench.pitch);
         roll.setPower(wrench.roll);
+        this.logger.info(`Virtual power set to [${wrench.heave}, ${wrench.sway}, ${wrench.surge}, ${wrench.yaw}, ${wrench.pitch}, ${wrench.roll}]`);
 
         for (const [physicalKey, terms] of Object.entries(this.virtualToPhysical)) {
             let sum = 0;

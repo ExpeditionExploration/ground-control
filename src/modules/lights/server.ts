@@ -19,6 +19,7 @@ export class LightsModuleServer extends Module {
             this.logger.info(`PCA9685 enabled: ${this.config.modules.lights.server.enabled && this.config.modules.common.pca9685.enabled}`);
         }
         this.on('setLight', async (data: { type: 'vis' | 'ir' | 'uv'; brightness: number }) => {
+            console.log('setLight event received', data);
             let channel: number; // Channel is PWM module output channel.
             switch (data.type) {
                 case 'vis':
@@ -35,6 +36,7 @@ export class LightsModuleServer extends Module {
                     return;
             }
             const brightness = Math.min(1, Math.max(0, data.brightness));
+            console.log(this.pwmModule, channel, brightness);
             if (this.pwmModule) {
                 await this.pwmModule.setDutyCycle(channel, brightness);
             }

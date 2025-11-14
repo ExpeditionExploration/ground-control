@@ -327,8 +327,8 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
         <div className="h-full flex flex-col">
             {/* Canvas to stream from */}
             <div className="absolute inset-0 w-full h-full">
-                <img ref={imgRef} src={droneVideoUrl} className="absolute inset-0 w-full h-full object-cover hidden" />
-                <canvas ref={canvasRef} className="w-full h-full" />
+                <img ref={imgRef} src={droneVideoUrl} className="absolute inset-0 w-full h-full object-contain hidden" />
+                <canvas ref={canvasRef} className="absolute w-full h-full object-contain inset-0" />
             </div>
         </div>
     );

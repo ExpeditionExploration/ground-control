@@ -30,7 +30,7 @@ export default defineConfig({
         },
     },
     server: {
-        host: 'rpi-82266.local',
+        host: 'rpi-79582.local',
         https: {
             key: fs.readFileSync('ssl/server.key'),
             cert: fs.readFileSync('ssl/server.crt'),
@@ -39,9 +39,9 @@ export default defineConfig({
         cors: {
             origin: '*',
         },
-        allowedHosts: ['rpi4.local', 'localhost', 'rpi-82266.local'],
+        allowedHosts: ['rpi4.local', 'localhost', 'rpi-82266.local', 'rpi-79582.local'],
     },
-    plugins: [react(), tailwindcss(), json5Plugin()],
+    plugins: [react(), tailwindcss()],
     resolve: {
         alias: [
             {
