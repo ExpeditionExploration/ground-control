@@ -138,7 +138,7 @@ export class IMUModuleServer extends Module {
                 break;
 
             case SensorId.SH2_ROTATION_VECTOR:
-                const ypr = [ev.pitch + Math.PI, -ev.yaw, ev.roll] // Remap axes
+                const ypr = [ev.pitch + Math.PI, ev.yaw, -ev.roll] // Remap axes
                 this.emit<Orientation>(
                     "orientation",
                     ypr as Orientation
