@@ -151,7 +151,7 @@ export class ControlModuleServer extends Module {
             position = subtract(position, this.config.modules.common.drone.centerOfMass) as number[];
             let force = orientation;
             let torque = cross(position, orientation);
-            this.logger.info(`${motor.name} position: ${round(position, 2)}, orientation: ${round(orientation, 2)}, force: ${round(force, 2)}, torque: ${round(torque, 2)}`);
+            // this.logger.info(`${motor.name} position: ${round(position, 2)}, orientation: ${round(orientation, 2)}, force: ${round(force, 2)}, torque: ${round(torque, 2)}`);
             /*mappingMatrix.push([
                 force[0],  // sway
                 force[1],  // heave
@@ -189,7 +189,7 @@ export class ControlModuleServer extends Module {
         for (const motor of virtual) {
             motor.on('setPower', (power) => {
                 if (motor.name === 'Rear Motor') {
-                    this.logger.info(`${motor.name} power set to ${power}`);
+                    // this.logger.info(`${motor.name} power set to ${power}`);
                 }
             });
         }
@@ -216,7 +216,7 @@ export class ControlModuleServer extends Module {
                 sum += (wrench[virtualKey as keyof Wrench]) * scale;
             }
             this.physicalMotors[physicalKey].setPower(sum);
-            this.logger.info(`${this.physicalMotors[physicalKey].name} power set to ${sum}`);
+            // this.logger.info(`${this.physicalMotors[physicalKey].name} power set to ${sum}`);
         }
 
         this.emit('wrench', wrench);
