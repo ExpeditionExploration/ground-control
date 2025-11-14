@@ -9,6 +9,12 @@ import { LocationKeeper } from './class/LocationKeeper';
 import { AccelerationUtils } from './class/AccelerationUtils';
 import { Location } from './types';
 
+const remapRotationAxes = {
+    z: 'x', // Actual roll is visualized as pitch, therefore remap z->x
+    x: 'y', // Actual pitch is visualized as roll, therefore remap x->y
+    y: 'z', // Yaw remains the same
+}
+
 export class IMUModuleServer extends Module {
 
     private samplingInterval = 20
@@ -60,9 +66,14 @@ export class IMUModuleServer extends Module {
                     +this.toMs(ev.timestampMicroseconds);
 
                 const worldAccel = AccelerationUtils.droneToWorld(
-                    [ev.x, ev.y, ev.z],
+                    [ev.z, ev.x, -ev.y],
                     new Euler(...this.currentYpr, 'YXZ')
                 );
+                // const worldAccel: Acceleration = [
+                //     tmpWorldAccel[2],
+                //     tmpWorldAccel[0],
+                //     -tmpWorldAccel[1],
+                // ] as Acceleration;
                 
                 this.speedKeeper.update(
                     worldAccel,
@@ -90,7 +101,6 @@ export class IMUModuleServer extends Module {
 
                 const loc = this._locationKeeper.location;
 
-                this.logger.debug('Emitting location:', loc);
                 this.emit<Location>('location', [loc.x, loc.y, loc.z] as Location);
 
                 // Compute acceleration in world coordinates (Y=up, -Z=forward, X=right)
@@ -128,13 +138,22 @@ export class IMUModuleServer extends Module {
                 break;
 
             case SensorId.SH2_ROTATION_VECTOR:
+                const ypr = [ev.pitch + Math.PI, -ev.yaw, ev.roll] // Remap axes
                 this.emit<Orientation>(
                     "orientation",
-                    [ev.yaw, ev.pitch, ev.roll]
+                    ypr as Orientation
+                    
                 )
-                this.currentYpr = [ev.yaw, ev.pitch, ev.roll]
+                this.currentYpr = ypr as [number, number, number]
                 break;
         }
+
+//         const remapRotationAxes = {
+//     z: 'x', // Actual roll is visualized as pitch, therefore remap z->x
+//     x: 'y', // Actual pitch is visualized as roll, therefore remap x->y
+//     y: 'z', // Yaw remains the same
+// }
+
     }
 
     private toMs = (us: bigint): number => {
