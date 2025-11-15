@@ -328,7 +328,7 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
             {/* Canvas to stream from */}
             <div className="absolute inset-0 w-full h-full">
                 <img ref={imgRef} src={droneVideoUrl} className="absolute inset-0 w-full h-full object-contain hidden" />
-                <canvas ref={canvasRef} className="absolute w-full h-full object-contain inset-0" />
+                <canvas ref={canvasRef} className="absolute w-full h-full object-contain inset-0 rotate-180" />
             </div>
         </div>
     );
