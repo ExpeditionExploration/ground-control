@@ -43,7 +43,7 @@ export const BatteryStats: React.FC<ViewProps<BatteryModuleClient>> = ({ module 
             setBatteryLevel(status.level);
             setMinutesRemaining(status.minutesRemaining);
             if (typeof status.currentDraw === 'number') addGraphDataPoint(status.currentDraw);
-            module.logger.debug('Battery status', status);
+            //module.logger.debug('Battery status', status);
         };
         module.on('status', handler);
         return () => {

@@ -19,7 +19,6 @@ export class MediaModuleClient extends Module {
     livekitInterval: NodeJS.Timeout | null = null;
     encoder: TextEncoder = new TextEncoder();
     decoder: TextDecoder = new TextDecoder();
-    private readonly roomName = 'mission-control-test';
     readonly liveKitRoom: Room;
     private portalTargets = new Map<string, HTMLElement>();
     private portalSubscribers = new Set<() => void>();

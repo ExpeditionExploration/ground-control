@@ -15,21 +15,26 @@ export class ControlModuleServer extends Module {
     private virtualMotors: { [key: string]: MotorState } = {};
     private virtualToPhysical: { [physicalKey: string]: { [virtualKey: string]: number } } = {};
 
+    private previousGroundControlInput: number = 0;
     private keyDownTimers: Record<string, NodeJS.Timeout> = {};
     private remoteCommandStates: Record<string, boolean> = {
-        roll_left: false,
-        roll_right: false,
-        pitch_up: false,
-        pitch_down: false,
-        yaw_left: false,
-        yaw_right: false,
-        surge: false,
-        surge_back: false,
+        'pitch_up': false,
+        'pitch_down': false,
+        'roll_left': false,
+        'roll_right': false,
+        'yaw_left': false,
+        'yaw_right': false,
+        'surge_forward': false,
+        'surge_back': false,
+        'heave_up': false,
+        'heave_down': false,
+        'visible-led': false,
+        'infrared-led': false,
+        'ultraviolet-led': false,
     };
     private remoteWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
     private localWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
-    private lastLocalInputTs = 0;
-    private localInputTimeoutMs = 200;
+    private groundControlInputTimeoutMs = 1000;
 
     constructor(deps: ServerModuleDependencies) {
         super(deps);
@@ -88,24 +93,24 @@ export class ControlModuleServer extends Module {
         this.setupMotors();
         // this.emitWrenchContinuously();
 
-        if (false) {
         this.broadcaster.on('*:*', (data: Payload) => {
             if (data.namespace !== 'drone-remote-control') {
                 return;
             }
-            const command = data.data?.command as keyof typeof this.remoteCommandStates | undefined;
+            const command = data.data.command as keyof typeof this.remoteCommandStates | undefined;
             if (!command || !(command in this.remoteCommandStates)) {
                 return;
             }
             this.applyRemoteCommand(command, true);
             if (this.keyDownTimers[command]) {
                 clearTimeout(this.keyDownTimers[command]);
+                this.keyDownTimers[command] = null;
             }
             this.keyDownTimers[command] = setTimeout(() => {
+                this.logger.info(`Remote command keyup timeout for command: ${command}`);
                 this.applyRemoteCommand(command, false);
-            }, 100);
+            }, 60);
         });
-        }
     }
 
     private applyRemoteCommand(command: keyof typeof this.remoteCommandStates, active: boolean) {
@@ -130,10 +135,10 @@ export class ControlModuleServer extends Module {
     emitWrenchContinuously() {
         setInterval(() => {
             const now = Date.now();
-            const useLocal = now - this.lastLocalInputTs < this.localInputTimeoutMs;
+            const useLocal = now - this.previousGroundControlInput < this.groundControlInputTimeoutMs;
             const source = useLocal ? this.localWrench : this.remoteWrench;
             this.applyWrenchToMotors(source);
-        }, 250);
+        }, 100);
     }
 
     async setupMotors() {
@@ -206,7 +211,7 @@ export class ControlModuleServer extends Module {
         }
 
         this.on('wrenchTarget', (wrench: Wrench) => {
-            this.lastLocalInputTs = Date.now();
+            this.previousGroundControlInput = Date.now();
             this.localWrench = { ...wrench };
             this.applyWrenchToMotors(wrench);
         });

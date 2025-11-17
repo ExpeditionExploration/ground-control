@@ -12,6 +12,7 @@ import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
 import { useMediaModuleContext } from '../context/MediaModuleContext';
 import { CarTaxiFront } from 'lucide-react';
+import { identity } from 'mathjs';
 
 
 export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
@@ -168,41 +169,38 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
 
     // Register data publisher and text stream handler once the room exists.
     const textHandlerRegisteredRef = useRef(false);
-    // useEffect(() => {
-    //     if (connectionState !== 'connected') return;
-    //     // Publish outgoing broadcaster events
-    //     module.broadcaster.on('*:*', (data) => {
-    //         if (connectionState !== 'connected') return;
-    //         const encoder = new TextEncoder();
-    //         ctx.room!.localParticipant.publishData(
-    //             encoder.encode(JSON.stringify(data))
-    //         ).catch((error) => {
-    //             console.error('Failed to publish data to LiveKit', error);
-    //         });
-    //     });
-    //     // Register text stream handler once
-    //     if (!textHandlerRegisteredRef.current) {
-    //         ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
-    //             console.log('Data stream started from participant:', participant.identity);
-    //             console.log('Stream information:', reader.info);
-    //             for await (const chunk of reader) {
-    //                 try {
-    //                     const parsed = JSON.parse(chunk);
-    //                     const cmd = parsed?.droneControl?.command;
-    //                     if (cmd) {
-    //                         module.broadcaster.emit('drone-remote-control:command', {
-    //                             command: cmd,
-    //                             identity: participant.identity,
-    //                         });
-    //                     }
-    //                 } catch (e) {
-    //                     console.error('Failed to parse data message', e);
-    //                 }
-    //             }
-    //         });
-    //         textHandlerRegisteredRef.current = true;
-    //     }
-    // }, [ctx.room, module.broadcaster, connectionState]);
+    useEffect(() => {
+        if (connectionState !== 'connected') return;
+        // Publish outgoing broadcaster events
+        module.broadcaster.on('*:*', (data) => {
+            if (connectionState !== 'connected') return;
+            const encoder = new TextEncoder();
+            ctx.room!.localParticipant.publishData(
+                encoder.encode(JSON.stringify(data))
+            ).catch((error) => {
+                console.error('Failed to publish data to LiveKit', error);
+            });
+        });
+        // Register text stream handler once
+        if (!textHandlerRegisteredRef.current) {
+            ctx.room.registerTextStreamHandler('commands', async (reader: TextStreamReader, participant: { identity: string }) => {
+                for await (const chunk of reader) {
+                    try {
+                        const parsed = JSON.parse(chunk);
+                        if (parsed.command) {
+                            module.broadcaster.emit('drone-remote-control:command', {
+                                ...parsed, 
+                                identity: participant.identity,
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse data message', e);
+                    }
+                }
+            });
+            textHandlerRegisteredRef.current = true;
+        }
+    }, [ctx.room, module.broadcaster, connectionState]);
 
     return output;
 };
