@@ -10,11 +10,11 @@ export class Config {
     port = 16500;
     reconnectTimeout = 5000;
     logger: LogLevel[] | boolean = true; // Set to false to disable logging
-    modules = {};
+    modules: Record<string, any> = {};
 
     async init() {
         try {
-            let obj: string;
+            let obj: Record<string, any>;
 
             if (typeof window !== "undefined") {
                 // const response = await fetch(`${import.meta.env.BASE_URL}moduleConfig.json5`);

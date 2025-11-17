@@ -251,68 +251,130 @@ function DroneVideoFeed({ droneVideoUrl }) {
     const [capturedTrackFromCanvas, setCapturedTrackFromCanvas]
         = useState<MediaStreamTrack | null>(null);
     useEffect(() => {
-        let localVideo: LocalVideoTrack;
+        let localVideo: LocalVideoTrack | null = null;
+        let cleanupCalled = false;
+
         const publishIt = () => {
             if (!imgRef.current || !canvasRef.current) {
+                console.log("⏳ Canvas or image not ready yet");
                 return;
             }
             if (hasInitialised.current) return;
-            hasInitialised.current = true;
-            console.log("Publishing canvas track as LocalVideoTrack");
+            if (!localParticipant) {
+                console.log("⏳ Local participant not ready yet");
+                return;
+            }
 
+            hasInitialised.current = true;
+            console.log("🎬 Starting canvas track publishing process");
+            console.log("📊 Room connection state:", ctx.room.state);
+
+            // Ensure canvas has proper dimensions
             canvasRef.current.width = imgRef.current.naturalWidth;
             canvasRef.current.height = imgRef.current.naturalHeight;
 
-            const mediaTrack = canvasRef.current?.captureStream(30).getVideoTracks()[0];
-            console.log("Captured mediaTrack from canvas:", mediaTrack);
-            const [sizex, sizey] = [canvasRef.current?.width, canvasRef.current?.height];
-            if (!mediaTrack || !sizex || !sizey) {
-                console.error("Failed to capture track from canvas. Scheduling retry in 5s.");
+            // Validate canvas has content before capturing
+            const [sizex, sizey] = [canvasRef.current.width, canvasRef.current.height];
+            if (!sizex || !sizey) {
+                console.error("❌ Canvas has zero dimensions. Scheduling retry in 5s.");
                 setTimeout(() => {
                     hasInitialised.current = false;
                     publishIt();
                 }, 5000);
                 return;
             }
-            // Wrap raw MediaStreamTrack as LocalVideoTrack so we keep a stable handle
-            const p = () => {
+
+            console.log(`✅ Canvas dimensions: ${sizex}x${sizey}`);
+
+            // Add small delay to ensure canvas has rendered at least one frame
+            setTimeout(() => {
+                if (cleanupCalled) return;
+
+                const mediaTrack = canvasRef.current?.captureStream(30).getVideoTracks()[0];
+                console.log("📹 Captured mediaTrack from canvas:", mediaTrack);
+                
+                if (!mediaTrack) {
+                    console.error("❌ Failed to capture track from canvas. Scheduling retry in 5s.");
+                    setTimeout(() => {
+                        hasInitialised.current = false;
+                        publishIt();
+                    }, 5000);
+                    return;
+                }
+
+                // Wrap raw MediaStreamTrack as LocalVideoTrack
                 localVideo = new LocalVideoTrack(mediaTrack);
-                localParticipant
-                    .publishTrack(localVideo, {
-                        name: 'drone:camera',
-                        source: Track.Source.Unknown,
-                    })
-                    .then((pub) => {
-                        publicationRef.current = pub;
-                    })
-                    .catch((err) => {
-                        console.error('Failed to publish canvas track', err);
-                        try {
-                            localVideo.stop();
-                        } catch { }
+                console.log("🎥 Created LocalVideoTrack from canvas stream");
+
+                const publishTrack = () => {
+                    if (cleanupCalled || !localVideo) return;
+
+                    console.log("📤 Publishing track to LiveKit...");
+                    localParticipant
+                        .publishTrack(localVideo, {
+                            name: 'drone:camera',
+                            source: Track.Source.Camera,
+                        })
+                        .then((pub) => {
+                            if (cleanupCalled) return;
+                            publicationRef.current = pub;
+                            console.log("✅ Canvas track published successfully!", {
+                                trackSid: pub.trackSid,
+                                trackName: pub.trackName,
+                                source: pub.source
+                            });
+                        })
+                        .catch((err) => {
+                            console.error('❌ Failed to publish canvas track:', err);
+                            if (localVideo && !cleanupCalled) {
+                                try {
+                                    localVideo.stop();
+                                } catch { }
+                            }
+                        });
+                };
+
+                // Check if room is already connected
+                if (ctx.room.state === 'connected') {
+                    console.log("✅ Room already connected, publishing immediately");
+                    publishTrack();
+                } else {
+                    console.log("⏳ Room not connected yet, waiting for connection...");
+                    ctx.room.once('connected', () => {
+                        console.log("✅ Room connected event fired, publishing track");
+                        publishTrack();
                     });
-            }
-            ctx.room.on('connected', () => {
-                p();
-            });
+                }
+            }, 100); // Small delay to ensure canvas has rendered
         };
+
         publishIt();
+
         return () => {
+            cleanupCalled = true;
+            console.log("🧹 Cleaning up canvas track publication");
+            
             // Unpublish by publication SID to ensure proper matching
             if (publicationRef.current) {
                 try {
                     localParticipant.unpublishTrack(publicationRef.current.track, true);
+                    console.log("✅ Track unpublished successfully");
                 } catch (e) {
-                    console.warn('Failed to unpublish canvas track', e);
+                    console.warn('⚠️ Failed to unpublish canvas track:', e);
                 }
                 publicationRef.current = null;
             }
-            try {
-                // Stop the local video track to release the canvas capture
-                localVideo.stop();
-            } catch { }
+            
+            if (localVideo) {
+                try {
+                    localVideo.stop();
+                    console.log("✅ Local video track stopped");
+                } catch (e) {
+                    console.warn('⚠️ Failed to stop local video track:', e);
+                }
+            }
         };
-    }, [canvasRef.current, capturedTrackFromCanvas]);
+    }, [canvasRef.current, capturedTrackFromCanvas, localParticipant, ctx.room]);
 
     return (
         <div className="h-full flex flex-col">
