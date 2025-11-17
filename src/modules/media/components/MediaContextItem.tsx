@@ -302,11 +302,23 @@ function DroneVideoFeed({ droneVideoUrl }) {
             return;
         }
 
+        const canvas = canvasRef.current;
+        const img = imgRef.current;
+        
+        // Verify image has valid dimensions before starting
+        if (!img.naturalWidth || !img.naturalHeight) {
+            console.warn("⚠️ Image loaded but naturalWidth/Height are 0, waiting...");
+            // Retry after a short delay
+            setTimeout(() => {
+                setImageLoaded(false);
+                setTimeout(() => setImageLoaded(true), 100);
+            }, 100);
+            return;
+        }
+
         renderLoopStarted.current = true;
         console.log("🎨 Starting canvas render loop");
 
-        const canvas = canvasRef.current;
-        const img = imgRef.current;
         const context = canvas.getContext('2d');
         
         if (!context) {
@@ -316,10 +328,17 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
         img.crossOrigin = "anonymous";
 
-        // Set canvas dimensions once
+        // Set canvas dimensions from image
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         console.log("🎨 Canvas initialized with dimensions:", canvas.width, "x", canvas.height);
+        
+        // Verify canvas dimensions are valid
+        if (canvas.width === 0 || canvas.height === 0) {
+            console.error("❌ Canvas dimensions are 0x0, cannot start render loop");
+            renderLoopStarted.current = false;
+            return;
+        }
 
         let animationFrameId: number;
         let frameCount = 0;
@@ -328,11 +347,22 @@ function DroneVideoFeed({ droneVideoUrl }) {
         const render = () => {
             if (!img || !canvas || !context) return;
             
-            // Update dimensions if image size changes
-            if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
+            // Ensure dimensions are always valid
+            const newWidth = img.naturalWidth || canvas.width;
+            const newHeight = img.naturalHeight || canvas.height;
+            
+            // Update dimensions if image size changes and dimensions are valid
+            if (newWidth > 0 && newHeight > 0 && (canvas.width !== newWidth || canvas.height !== newHeight)) {
+                canvas.width = newWidth;
+                canvas.height = newHeight;
                 console.log("🎨 Canvas dimensions updated:", canvas.width, "x", canvas.height);
+            }
+
+            // Only draw if canvas has valid dimensions
+            if (canvas.width === 0 || canvas.height === 0) {
+                console.warn("⚠️ Canvas has 0 dimensions, skipping frame");
+                animationFrameId = requestAnimationFrame(render);
+                return;
             }
 
             try {
