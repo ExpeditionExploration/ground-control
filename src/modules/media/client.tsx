@@ -47,37 +47,6 @@ export class MediaModuleClient extends Module {
         this.userInterface.addFooterItem(MediaPortalWebCamAnchor, {
             side: Side.Right,
         });
-        this.broadcaster.on('*:*', (data) => {
-            if (this.liveKitRoom.state !== 'connected') {
-                console.warn('LiveKit room not connected, skipping publishData');
-                return;
-            }
-            // console.log('Broadcast received in MediaModuleClient. Emitting', data);
-            this.liveKitRoom.localParticipant.publishData(
-                this.encoder.encode(JSON.stringify(data)),
-            ).catch((error) => {
-                console.error('Failed to publish data to LiveKit', error);
-            });
-        });
-        this.liveKitRoom.registerTextStreamHandler('drone-control',
-            async (reader: TextStreamReader, participant: {identity: string}) => {
-                console.log('Data stream started from participant:', participant);
-                console.log('Stream information:', reader.info);
-                for await (const chunk of reader) {
-                    try {
-                        const parsed = JSON.parse(chunk);
-                        console.log('Data:', parsed.droneControl);
-                        const data = {
-                            command: parsed.droneControl.command,
-                            identity: participant.identity,
-                        };
-                        this.broadcaster.emit('drone-remote-control:command', data);
-                    } catch (e) {
-                        console.error('Failed to parse data message', e);
-                    }
-                }
-            }
-        );
     }
 
     registerPortalTarget(slot: string, element: HTMLElement | null) {
@@ -106,20 +75,6 @@ export class MediaModuleClient extends Module {
 
     getVersion() {
         return this.portalVersion;
-    }
-
-    getMediaContextValue(): MediaContextValue {
-        const mediaConfig = this.mediaConfig as {
-            liveKitUrl: string;
-            missionControlHost: string;
-        };
-        return {
-            module: this,
-            liveKitUrl: mediaConfig.liveKitUrl,
-            missionControlHost: mediaConfig.missionControlHost,
-            room: this.liveKitRoom,
-            webcamControls: this.webcamControls,
-        };
     }
 
     setWebcamControls(controls: MediaContextValue['webcamControls']) {

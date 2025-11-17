@@ -58,7 +58,6 @@ export class SpatialModuleClient extends Module {
         });
 
         this.broadcaster.on('imu:location', (payload: Payload) => {
-            this.logger.info('Seinding imu:location to spatial:', payload);
             const imuLocation = payload.data as Location;
             this.sendStatusPayloadToWindow({
                 event: 'location',

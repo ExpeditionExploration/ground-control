@@ -17,14 +17,17 @@ export const MediaModuleShell: React.FC<ViewProps<MediaModuleClient>> = ({ modul
         () => module.getVersion(),
     );
 
-    const contextValue = useMemo(
-        () => module.getMediaContextValue(),
-        [module, version],
-    );
-
     const takePictureTarget = module.getPortalTarget(MEDIA_PORTAL_SLOTS.footerTakePicture);
     const recordTarget = module.getPortalTarget(MEDIA_PORTAL_SLOTS.footerRecord);
     const webCamTarget = module.getPortalTarget(MEDIA_PORTAL_SLOTS.footerWebcam);
+    const contextValue = useMemo(() => ({
+        module,
+        livekitUrl: module.livekitUrl,
+        platformUrl: module.platformUrl,
+        droneId: module.droneId,
+        macAddress: module.macAddress,
+        room: null,
+    }), [module]);
 
     return (
         <MediaModuleProvider value={contextValue}>
@@ -32,7 +35,7 @@ export const MediaModuleShell: React.FC<ViewProps<MediaModuleClient>> = ({ modul
                 <MediaContextItem module={module} />
                 {takePictureTarget && createPortal(<TakePictureButton module={module} />, takePictureTarget)}
                 {recordTarget && createPortal(<RecordButton module={module} />, recordTarget)}
-                {webCamTarget && createPortal(<WebCam />, webCamTarget)}
+                {/*webCamTarget && createPortal(<WebCam />, webCamTarget)*/}
             </RoomContext.Provider>
         </MediaModuleProvider>
     );

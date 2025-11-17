@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createLocalTracks, LocalAudioTrack, LocalTrack, LocalVideoTrack, Room, RoomEvent, Track } from 'livekit-client';
 import { isTrackReference, TrackReference, useTracks, VideoTrack } from '@livekit/components-react';
 import { Video, Mic, Users } from 'lucide-react';
-import { useMediaModule } from '../context/MediaModuleContext';
+import { useMediaModuleContext } from '../context/MediaModuleContext';
 
 type LocalMediaRefs = {
 	videoTrack: LocalVideoTrack | null;
@@ -37,9 +37,18 @@ const publishLocalTracks = async (
 };
 
 export const WebCam: React.FC = () => {
-	const { room, webcamControls, module: mediaModule } = useMediaModule();
+	const { room, webcamControls, module: mediaModule } = useMediaModuleContext();
 
-	const [fallbackWebcamEnabled, setFallbackWebcamEnabled] = useState(true);
+	// Early guard: until a Room instance exists, show lightweight placeholder.
+	if (!room) {
+		return (
+			<div className="w-56 space-y-3 text-xs text-slate-400">
+				Realtime session initializing…
+			</div>
+		);
+	}
+
+	const [fallbackWebcamEnabled, setFallbackWebcamEnabled] = useState(false);
 	const [fallbackMicMuted, setFallbackMicMuted] = useState(false);
 	const [fallbackShowRemote, setFallbackShowRemote] = useState(true);
 
@@ -90,6 +99,10 @@ export const WebCam: React.FC = () => {
 	}, [remoteCameraTracks]);
 
 	useEffect(() => {
+		if (!room) {
+			return;
+		}
+	
 		let cancelled = false;
 		const setup = async () => {
 			try {

@@ -3,6 +3,14 @@
 {
     // General settings that apply to all modules and drone core settings.
     "common": {
+        "droneId": "B3B5B828AACE",
+        //"livekitUrl": "wss://misison-control-test-7te1qygb.livekit.cloud",
+        "livekitUrl": "wss://expeditionx-zpuob57u.livekit.cloud",
+        "platformUrl": "https://mission-control-sigma.vercel.app",
+        "droneStreamPath": "api/stream.mjpeg?src=camera1",
+        "droneStreamPort": "1984",
+        "macAddress": "2c:cf:67:db:b9:15",
+
         "websocket": { // Only SSL now
             "cert": "ssl/server.crt",
             "key": "ssl/server.key"
@@ -17,7 +25,7 @@
             "camera": [0, 0, 0],
         },
         "pca9685": {
-            "enabled": true,
+            "enabled": false,
             "i2cBus": 1, // RaspberryPi_5B
             //"i2cBus": 4, // OrangePi_5
             "i2cAddr": "0x40",
@@ -67,15 +75,7 @@
         "client": {}
     },
     "media": {
-        // Token server lives at the mission-control-remote repository
-        // Watch out for vscode port forwards if using localhost here
-        "liveKitUrl": "wss://misison-control-test-7te1qygb.livekit.cloud",
-        "droneStreamPath": "api/stream.mjpeg?src=camera1",
-        "droneStreamPort": "1984",
-        "missionControlHost": "https://mission-control-sigma.vercel.app/",
-        "macAddress": "2c:cf:67:db:b9:15",
         "server": {
-            // LiveKit secrets are in the .env file and not here.
         },
         "client": {
         }
@@ -109,7 +109,7 @@
             "bno085": {
                 // "i2cBus": 3, // RaspberryPi_4B
                 // "i2cBus": 1, // OrangePi_5
-                "i2cBus": 2, // RaspberryPi_5B
+                "i2cBus": 1, // RaspberryPi_5B
                 "i2cAddr": "0x4b",
                 "useInterrupts": true,
                 // From opengpio library use device-specific bcm pin names.

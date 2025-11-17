@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
     ControlBar,
     RoomAudioRenderer,
@@ -6,268 +6,209 @@ import {
     useLocalParticipant,
     RoomContext,
 } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { Track, Room, TextStreamReader, LocalVideoTrack, LocalTrackPublication } from 'livekit-client';
 import { useGroundOperatorAnnounce } from './hooks/useGroundOperatorAnnounce';
 import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
-import { useMediaModule } from '../context/MediaModuleContext';
+import { useMediaModuleContext } from '../context/MediaModuleContext';
+import { CarTaxiFront } from 'lucide-react';
 
-interface RegisteredDrone {
-    id: string;
-    name: string;
-    model: string;
-    macAddress: string;
-    status: string;
-}
 
 export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
-        <MediaContextItemInternal module={module} />
+    <MediaContextItemInternal module={module} />
 );
 
 const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => {
-    const mediaConfig = module.mediaConfig ?? {};
-    const [drones, setDrones] = useState<RegisteredDrone[]>([]);
-    const [selectedDrone, setSelectedDrone] = useState<RegisteredDrone | null>(null);
-    const mediaContext = useMediaModule();
-    const roomInstance = mediaContext.room;
 
-    const [status, setStatus] = useState<'listing' | 'connecting' | 'connected' | 'error'>(
-        'listing'
-    );
-    const [errorMsg, setErrorMsg] = useState('');
+    const ctx = useMediaModuleContext();
+    ctx.livekitUrl = module.config.modules.common.livekitUrl;
+    ctx.platformUrl = module.config.modules.common.platformUrl;
+    ctx.droneId = module.config.modules.common.droneId;
+    ctx.macAddress = module.config.modules.common.macAddress;
+    ctx.missionId = null;
+    console.log("module:", module.config.modules.common);
 
-    const [liveKitConnectionData, setLiveKitConnectionData] = useState<{
-        token: string;
-        room: string;
-        identity: string;
-        drone: {
-            id: string;
-            name: string;
-            macAddress: string;
-            model: string;
-        };
-    } | null>(null);
+    // Ensure a Room instance exists synchronously so children using RoomContext have a value immediately.
+    if (!ctx.room) {
+        ctx.room = new Room();
+    }
 
+    const heartbeat = useRef<NodeJS.Timeout | null>(null);
+
+    const [connectionState, setConnectionState] = useState<
+        'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
     const [droneMjpegStreamUrl, setDroneMjpegStreamUrl] = useState<string | null>(null);
+
+    console.log(`!ctx.livekitUrl || !(ctx.droneId || ctx.macAddress) || !ctx.platformUrl`)
+    console.log(`livekitUrl: ${ctx.livekitUrl}, droneId: ${ctx.droneId}, macAddress: ${ctx.macAddress}, platformUrl: ${ctx.platformUrl}`)
+    if (!ctx.livekitUrl || !(ctx.droneId || ctx.macAddress) || !ctx.platformUrl) {
+        return <div className="p-4 text-red-500">Media Module not configured properly. Missing livekitUrl, droneId, platformUrl, or macAddress.</div>;
+    }
+
+    async function connectDrone() {
+        setConnectionState('connecting');
+        console.log("Connecting.");
+        // 1. Request token
+        const tokenRes = await fetch(`${ctx.platformUrl}/api/ground-operator/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ macAddress: ctx.macAddress })
+        });
+        let token, roomName, identity;
+        const tokenJson = await tokenRes.json();
+        console.log("tokenRes:", tokenJson);
+        try {
+            const { token: t, room: r, identity: i } = tokenJson;
+            token = t;
+            roomName = r;
+            identity = i;
+            console.log("Received token response:", { token, roomName, identity });
+        } catch (e) {
+            console.error("Failed to parse token response", e);
+            setConnectionState('error');
+            return;
+        }
+
+        console.log("Connecting to LiveKit room:", { livekitUrl: ctx.livekitUrl, roomName, identity });
+        // 2. Connect to LiveKit (Room already created synchronously above)
+        try {
+            if (!ctx.room) {
+                ctx.room = new Room();
+            }
+            await ctx.room!.connect(ctx.livekitUrl!, token);
+        } catch (e) {
+            console.error("Failed to connect to LiveKit room", e);
+            setConnectionState('error');
+            return;
+        }
+
+        console.log("Announcing connection");
+        // 3. Announce connection
+        const announceRes = await fetch(`${ctx.platformUrl}/api/ground-operator/announce`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ macAddress: ctx.macAddress, livekitIdentity: identity })
+        });
+        try {
+            ctx.missionId = await announceRes.json();
+        } catch (e) {
+            console.error("Failed to announce connection", e);
+            setConnectionState('error');
+            return;
+        }
+
+        // 4. Start heartbeat
+        heartbeat.current = setInterval(async () => {
+            await fetch(`${ctx.platformUrl}/api/ground-operator/announce`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ macAddress: ctx.macAddress, livekitIdentity: identity })
+            });
+        }, 20000);
+
+        console.log("Connected.");
+        setConnectionState('connected');
+    };
+    // 5. Handle disconnect
+    const disconnectDrone = async () => {
+        clearInterval(heartbeat.current);
+        heartbeat.current = null;
+        await fetch(`${ctx.platformUrl}/api/ground-operator/disconnect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ macAddress: ctx.macAddress })
+        });
+        await ctx.room?.disconnect();
+    };
+
+    // Schedule connect on mount
+    useEffect(() => {
+        connectDrone();
+        return () => {
+            disconnectDrone();
+        };
+    }, []);
+
     useEffect(() => {
         if (typeof window === 'undefined') {
             return;
         }
         const { hostname } = window.location;
-        const portSegment = mediaConfig.droneStreamPort ?? '1984';
-        const pathSegment = mediaConfig.droneStreamPath ?? 'api/stream.mjpeg?src=camera1';
+        // Access optional fields defensively (not part of typed Config interface yet)
+        const portSegment = (module.config as any).droneStreamPort ?? '1984';
+        const pathSegment = (module.config as any).droneStreamPath ?? 'api/stream.mjpeg?src=camera1';
         console.log("Setting drone MJPEG stream URL to:", `https://${hostname}:${portSegment}/${pathSegment}`);
         setDroneMjpegStreamUrl(`https://${hostname}:${portSegment}/${pathSegment}`);
     }, []);
 
+    // Render based on connection state
+    const output = useMemo(() => {
+        // Always provide the RoomContext; internal content varies by connection state.
+        return (
+            <RoomContext.Provider value={ctx.room!}>
+                {connectionState === 'connected' && (
+                    <div className="h-full w-full cover">
+                        <DroneVideoFeed droneVideoUrl={droneMjpegStreamUrl ?? undefined} />
+                        <RoomAudioRenderer />
+                        <ControlBar />
+                    </div>
+                )}
+                {connectionState === 'connecting' && (
+                    <div className="p-4">Connecting to drone...</div>
+                )}
+                {connectionState === 'disconnected' && (
+                    <div className="p-4 text-red-500">Disconnected from drone.</div>
+                )}
+                {connectionState === 'error' && (
+                    <div className="p-4 text-red-500">Error connecting to drone.</div>
+                )}
+            </RoomContext.Provider>
+        );
+    }, [connectionState, ctx.room, droneMjpegStreamUrl]);
 
-    const {
-        announce,
-        data: announceData,
-        error: announceError,
-        isLoading: announceIsLoading
-    } = useGroundOperatorAnnounce({
-        missionControlHost: mediaConfig.missionControlHost,
-    });
+    // Register data publisher and text stream handler once the room exists.
+    const textHandlerRegisteredRef = useRef(false);
+    // useEffect(() => {
+    //     if (connectionState !== 'connected') return;
+    //     // Publish outgoing broadcaster events
+    //     module.broadcaster.on('*:*', (data) => {
+    //         if (connectionState !== 'connected') return;
+    //         const encoder = new TextEncoder();
+    //         ctx.room!.localParticipant.publishData(
+    //             encoder.encode(JSON.stringify(data))
+    //         ).catch((error) => {
+    //             console.error('Failed to publish data to LiveKit', error);
+    //         });
+    //     });
+    //     // Register text stream handler once
+    //     if (!textHandlerRegisteredRef.current) {
+    //         ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
+    //             console.log('Data stream started from participant:', participant.identity);
+    //             console.log('Stream information:', reader.info);
+    //             for await (const chunk of reader) {
+    //                 try {
+    //                     const parsed = JSON.parse(chunk);
+    //                     const cmd = parsed?.droneControl?.command;
+    //                     if (cmd) {
+    //                         module.broadcaster.emit('drone-remote-control:command', {
+    //                             command: cmd,
+    //                             identity: participant.identity,
+    //                         });
+    //                     }
+    //                 } catch (e) {
+    //                     console.error('Failed to parse data message', e);
+    //                 }
+    //             }
+    //         });
+    //         textHandlerRegisteredRef.current = true;
+    //     }
+    // }, [ctx.room, module.broadcaster, connectionState]);
 
-    // 🔄 Fetch registered drones (no auth, shows all)
-    useEffect(() => {
-        const fetchDrones = async () => {
-            try {
-                // ⚠️ For MVP: Fetch all drones without auth
-                // TODO: Add proper authentication in production
-                console.log("missionControlHost", mediaConfig.missionControlHost);
-                const resp = await fetch(`${mediaConfig.missionControlHost}api/drones/all`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    setDrones(data.drones || []);
-                }
-            } catch (error) {
-                console.error('❌ Failed to fetch registered drones:', error);
-            }
-        };
-
-        fetchDrones();
-    }, []);
-
-    // 🔄 Set selected drone to this drone.
-    useEffect(() => {
-        if (drones.length > 0) {
-            setSelectedDrone(drones.filter(
-                d => d.macAddress.toLowerCase() === (mediaConfig.macAddress ?? '').toLowerCase()
-            )[0] || null);
-        }
-    }, [drones]);
-
-    // 🧹 Cleanup on unmount - disconnect if still connected
-    useEffect(() => {
-        return () => {
-            if (selectedDrone && roomInstance.state === 'connected') {
-                // 📡 Notify server about disconnection
-                fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        macAddress: selectedDrone.macAddress,
-                    }),
-                }).catch((error) => {
-                    console.error('❌ Failed to notify disconnection on unmount:', error);
-                });
-                
-                roomInstance.disconnect();
-            }
-        };
-    }, [selectedDrone, roomInstance]);
-
-    // 🚪 Handle browser tab close/reload - critical for proper cleanup
-    useEffect(() => {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (selectedDrone && roomInstance.state === 'connected') {
-                // 📡 Synchronous disconnect notification using sendBeacon (works during page unload)
-                const data = JSON.stringify({
-                    macAddress: selectedDrone.macAddress,
-                });
-                
-                // ⚠️ Use sendBeacon for reliable disconnect on page close
-                navigator.sendBeacon(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, data);
-                
-                roomInstance.disconnect();
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [selectedDrone, roomInstance]);
-
-    const handleConnect = async (drone: RegisteredDrone) => {
-        try {
-            setStatus('connecting');
-            setErrorMsg('');
-            setSelectedDrone(drone);
-
-            // 🎫 Request LiveKit token from server
-            const resp = await fetch(`${mediaConfig.missionControlHost}api/ground-operator/token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ macAddress: drone.macAddress }),
-            });
-
-            if (!resp.ok) {
-                const error = await resp.json();
-                throw new Error(error.error || 'Failed to get token');
-            }
-
-            const data = await resp.json();
-            console.log(data);
-            setLiveKitConnectionData(data.token);
-
-            // 🔌 Connect to LiveKit room
-            await roomInstance.connect(mediaConfig.liveKitUrl, data.token);
-
-            // 📡 Announce drone connection (with heartbeat)
-            await announce({
-                macAddress: mediaConfig.macAddress,
-                livekitIdentity: data.identity,
-            });
-            const announceConnection = async () => {
-                
-                try {
-                    const response = await fetch(`${mediaConfig.missionControlHost}api/ground-operator/announce`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            macAddress: drone.macAddress,
-                            livekitIdentity: data.identity,
-                        }),
-                    });
-                    
-                    if (!response.ok) {
-                        console.error('❌ Announce failed:', response.status, await response.text());
-                    } else {
-                        const result = await response.json();
-                        console.log('✅ Announce successful:', result);
-                    }
-                } catch (error) {
-                    console.error('❌ Failed to announce connection:', error);
-                }
-            };
-
-            // ✅ Initial announcement
-            await announceConnection();
-
-            // 🔄 Send heartbeat every 20 seconds to maintain connection status
-            const heartbeatInterval = setInterval(announceConnection, 20000);
-
-            // 🧹 Cleanup on disconnect
-            roomInstance.once('disconnected', async () => {
-                clearInterval(heartbeatInterval);
-                
-                // 📡 Notify server about disconnection
-                try {
-                    await fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            macAddress: drone.macAddress,
-                        }),
-                    });
-                } catch (error) {
-                    console.error('❌ Failed to notify disconnection:', error);
-                }
-            });
-
-            setStatus('connected');
-        } catch (error) {
-            console.error('❌ Connection error:', error);
-            setErrorMsg(error instanceof Error ? error.message : 'Connection failed');
-            setStatus('error');
-        }
-    };
-
-    const handleDisconnect = async () => {
-        if (selectedDrone) {
-            // 📡 Notify server before disconnecting
-            try {
-                await fetch(`${mediaConfig.client?.missionControlHost}api/ground-operator/disconnect`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        macAddress: selectedDrone.macAddress,
-                    }),
-                });
-            } catch (error) {
-                console.error('❌ Failed to notify disconnection:', error);
-            }
-        }
-        
-        roomInstance.disconnect();
-        setSelectedDrone(null);
-        setStatus('listing');
-    };
-
-    useEffect(() => {
-        if (!selectedDrone) return;
-        handleConnect(selectedDrone!);
-        return () => {handleDisconnect()};
-    }, [selectedDrone]);
-
-    // ✅ Connected state - Streaming video
-    return (
-        <RoomContext.Provider value={roomInstance}>
-            <div className="h-full w-full cover">
-                {/* Video Feed */}
-                <DroneVideoFeed
-                    droneVideoUrl={droneMjpegStreamUrl ?? undefined}
-                    connData={liveKitConnectionData} />
-                <RoomAudioRenderer />
-                <ControlBar />
-            </div>
-        </RoomContext.Provider>
-    );
-}
+    return output;
+};
 
 // 📹 Video feed component showing local camera and participants
-function DroneVideoFeed({droneVideoUrl, connData}) {
+function DroneVideoFeed({ droneVideoUrl }) {
     const { localParticipant } = useLocalParticipant();
     const tracks = useTracks(
         [
@@ -280,6 +221,8 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
     const imgRef = useRef<HTMLImageElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const hasInitialised = useRef(false);
+    const publicationRef = useRef<LocalTrackPublication | null>(null);
+    const ctx = useMediaModuleContext();
 
     // Copy image to canvas
     useEffect(() => {
@@ -300,28 +243,76 @@ function DroneVideoFeed({droneVideoUrl, connData}) {
                     render();
                 });
             };
-        render();
+            render();
         }
     }, [imgRef.current]);
 
     // Publish canvas track
+    const [capturedTrackFromCanvas, setCapturedTrackFromCanvas]
+        = useState<MediaStreamTrack | null>(null);
     useEffect(() => {
-        if (hasInitialised.current) return;
-        hasInitialised.current = true;
+        let localVideo: LocalVideoTrack;
+        const publishIt = () => {
+            if (!imgRef.current || !canvasRef.current) {
+                return;
+            }
+            if (hasInitialised.current) return;
+            hasInitialised.current = true;
+            console.log("Publishing canvas track as LocalVideoTrack");
 
-        const track = canvasRef.current?.captureStream(5).getVideoTracks()[0];
-        if (!track) {
-            console.error("Failed to capture track from canvas");
-            return;
-        }
-        localParticipant.publishTrack(track, {
-            name: 'drone-camera',
-            source: Track.Source.Camera,
-        });
-        return () => {
-            localParticipant.unpublishTrack(track);
+            canvasRef.current.width = imgRef.current.naturalWidth;
+            canvasRef.current.height = imgRef.current.naturalHeight;
+
+            const mediaTrack = canvasRef.current?.captureStream(30).getVideoTracks()[0];
+            console.log("Captured mediaTrack from canvas:", mediaTrack);
+            const [sizex, sizey] = [canvasRef.current?.width, canvasRef.current?.height];
+            if (!mediaTrack || !sizex || !sizey) {
+                console.error("Failed to capture track from canvas. Scheduling retry in 5s.");
+                setTimeout(() => {
+                    hasInitialised.current = false;
+                    publishIt();
+                }, 5000);
+                return;
+            }
+            // Wrap raw MediaStreamTrack as LocalVideoTrack so we keep a stable handle
+            const p = () => {
+                localVideo = new LocalVideoTrack(mediaTrack);
+                localParticipant
+                    .publishTrack(localVideo, {
+                        name: 'drone:camera',
+                        source: Track.Source.Unknown,
+                    })
+                    .then((pub) => {
+                        publicationRef.current = pub;
+                    })
+                    .catch((err) => {
+                        console.error('Failed to publish canvas track', err);
+                        try {
+                            localVideo.stop();
+                        } catch { }
+                    });
+            }
+            ctx.room.on('connected', () => {
+                p();
+            });
         };
-    }, [canvasRef.current]);
+        publishIt();
+        return () => {
+            // Unpublish by publication SID to ensure proper matching
+            if (publicationRef.current) {
+                try {
+                    localParticipant.unpublishTrack(publicationRef.current.track, true);
+                } catch (e) {
+                    console.warn('Failed to unpublish canvas track', e);
+                }
+                publicationRef.current = null;
+            }
+            try {
+                // Stop the local video track to release the canvas capture
+                localVideo.stop();
+            } catch { }
+        };
+    }, [canvasRef.current, capturedTrackFromCanvas]);
 
     return (
         <div className="h-full flex flex-col">
