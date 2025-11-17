@@ -12,12 +12,10 @@ export class LightsModuleServer extends Module {
         uv: 0,
     };
     private readonly numLightStates = 5;
-    private readonly lightCycleMinBlockTimeout = 500; // milliseconds
-    private lightCycleBlockingTimers: { [key: string]: NodeJS.Timeout | null } = {
-        vis: null,
-        ir: null,
-        uv: null,
-    };
+    private readonly lightCycleMinBlockTimeout = 250; // milliseconds
+    private visLightTimer: NodeJS.Timeout | null = null;
+    private irLightTimer: NodeJS.Timeout | null = null;
+    private uvLightTimer: NodeJS.Timeout | null = null;
     private deps: ServerModuleDependencies;
 
     constructor(deps: ServerModuleDependencies) {
@@ -38,21 +36,44 @@ export class LightsModuleServer extends Module {
         this.broadcaster.on('drone-remote-control:command', (payload: Payload) => {
             switch (payload.data.command) {
                 case 'infrared-led':
+                    if (this.irLightTimer) {
+                        this.irLightTimer.refresh();
+                        return;
+                    } else {
+                        this.irLightTimer = setTimeout(() => {
+                            this.irLightTimer = null;
+                        }, this.lightCycleMinBlockTimeout);
+                    }
                     this.cycleLight({ type: 'ir' })
-                    .then(() => { this.logger.info('IR light cycle complete') })
+                    .then(() => {})
                     .catch((err) => { this.logger.error('Error cycling IR light:', err); });
                     break;
 
                 case 'visible-led':
+                    if (this.visLightTimer) {
+                        this.visLightTimer.refresh();
+                        return;
+                    } else {
+                        this.visLightTimer = setTimeout(() => {
+                            this.visLightTimer = null;
+                        }, this.lightCycleMinBlockTimeout);
+                    }
                     this.cycleLight({ type: 'vis' })
-                    .then(() => { this.logger.info('Vis light cycle complete') })
+                    .then(() => {})
                     .catch((err) => { this.logger.error('Error cycling Vis light:', err); });
                     break;
 
                 case 'ultraviolet-led':
-                    this.logger.info('Cycling uv light state');
+                    if (this.uvLightTimer) {
+                        this.uvLightTimer.refresh();
+                        return;
+                    } else {
+                        this.uvLightTimer = setTimeout(() => {
+                            this.uvLightTimer = null;
+                        }, this.lightCycleMinBlockTimeout);
+                    }
                     this.cycleLight({ type: 'uv' })
-                    .then(() => { this.logger.info('UV light cycle complete') })
+                    .then(() => {})
                     .catch((err) => { this.logger.error('Error cycling UV light:', err); });
                     break;
             }
@@ -60,10 +81,6 @@ export class LightsModuleServer extends Module {
     }
 
     private cycleLight = async (data: { type: 'vis' | 'ir' | 'uv'; brightness?: number }) => {
-        this.logger.info(`Cycling light: ${data.type}`);
-        if (this.lightCycleBlockingTimers[data.type]) {
-            return;
-        }
         let channel: number; // Channel is PWM module output channel.
         switch (data.type) {
             case 'vis':
@@ -83,14 +100,9 @@ export class LightsModuleServer extends Module {
         const decrement = 1 / (this.numLightStates - 1);
         const brightness = curBrightness - decrement < 0 ? 1 : curBrightness - decrement;
         this.brightnessMap[data.type] = brightness;
-        this.logger.info(`Setting PWM channel ${channel} to brightness ${brightness}`);
+        this.logger.info(`Setting PWM channel ${channel} (${data.type}) to brightness ${brightness}`);
         if (this.pwmModule) {
             await this.pwmModule.setDutyCycle(channel, brightness);
         }
-
-        // Set blocking timer and timeout to clear it.
-        this.lightCycleBlockingTimers[data.type] = setTimeout(() => {
-            this.lightCycleBlockingTimers[data.type] = null;
-        }, this.lightCycleMinBlockTimeout);
     };
 }
