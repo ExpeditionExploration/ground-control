@@ -223,34 +223,101 @@ function DroneVideoFeed({ droneVideoUrl }) {
     const hasInitialised = useRef(false);
     const publicationRef = useRef<LocalTrackPublication | null>(null);
     const ctx = useMediaModuleContext();
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const renderLoopStarted = useRef(false);
 
-    // Copy image to canvas
+    // Handle image load event
     useEffect(() => {
-        if (imgRef.current && canvasRef.current) {
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            const render = () => {
-                requestAnimationFrame(() => {
-                    if (!imgRef.current) return;
-                    const context = canvas.getContext('2d');
-                    imgRef.current.crossOrigin = "anonymous";
-                    if (!context) return;
-                    canvas.width = imgRef.current.naturalWidth;
-                    canvas.height = imgRef.current.naturalHeight;
+        const img = imgRef.current;
+        if (!img) return;
 
-                    context.drawImage(imgRef.current, 0, 0, canvas.width, canvas.height);
-                    render();
-                });
-            };
-            render();
+        const handleLoad = () => {
+            console.log("🖼️ Image loaded, dimensions:", img.naturalWidth, "x", img.naturalHeight);
+            setImageLoaded(true);
+        };
+
+        const handleError = (e: Event) => {
+            console.error("❌ Image failed to load:", e);
+        };
+
+        // Check if image is already loaded
+        if (img.complete && img.naturalWidth > 0) {
+            console.log("🖼️ Image already loaded");
+            setImageLoaded(true);
+        } else {
+            img.addEventListener('load', handleLoad);
+            img.addEventListener('error', handleError);
         }
-    }, [imgRef.current]);
 
-    // Publish canvas track
+        return () => {
+            img.removeEventListener('load', handleLoad);
+            img.removeEventListener('error', handleError);
+        };
+    }, [droneVideoUrl]);
+
+    // Copy image to canvas - start render loop when image is loaded
+    useEffect(() => {
+        if (!imageLoaded || !imgRef.current || !canvasRef.current) {
+            return;
+        }
+
+        if (renderLoopStarted.current) {
+            return;
+        }
+
+        renderLoopStarted.current = true;
+        console.log("🎨 Starting canvas render loop");
+
+        const canvas = canvasRef.current;
+        const img = imgRef.current;
+        const context = canvas.getContext('2d');
+        
+        if (!context) {
+            console.error("❌ Failed to get canvas 2D context");
+            return;
+        }
+
+        img.crossOrigin = "anonymous";
+
+        // Set canvas dimensions once
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        console.log("🎨 Canvas initialized with dimensions:", canvas.width, "x", canvas.height);
+
+        let animationFrameId: number;
+        const render = () => {
+            if (!img || !canvas || !context) return;
+            
+            // Update dimensions if image size changes
+            if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+            }
+
+            context.drawImage(img, 0, 0, canvas.width, canvas.height);
+            animationFrameId = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            renderLoopStarted.current = false;
+        };
+    }, [imageLoaded]);
+
+    // Publish canvas track - wait for image to load and canvas to be rendering
     const [capturedTrackFromCanvas, setCapturedTrackFromCanvas]
         = useState<MediaStreamTrack | null>(null);
     useEffect(() => {
+        // Don't try to publish until image is loaded and canvas is rendering
+        if (!imageLoaded) {
+            console.log("⏳ Waiting for image to load before publishing track");
+            return;
+        }
+
         let localVideo: LocalVideoTrack | null = null;
         let cleanupCalled = false;
 
@@ -269,18 +336,14 @@ function DroneVideoFeed({ droneVideoUrl }) {
             console.log("🎬 Starting canvas track publishing process");
             console.log("📊 Room connection state:", ctx.room.state);
 
-            // Ensure canvas has proper dimensions
-            canvasRef.current.width = imgRef.current.naturalWidth;
-            canvasRef.current.height = imgRef.current.naturalHeight;
-
             // Validate canvas has content before capturing
             const [sizex, sizey] = [canvasRef.current.width, canvasRef.current.height];
             if (!sizex || !sizey) {
-                console.error("❌ Canvas has zero dimensions. Scheduling retry in 5s.");
+                console.error("❌ Canvas has zero dimensions. Scheduling retry in 2s.");
                 setTimeout(() => {
                     hasInitialised.current = false;
                     publishIt();
-                }, 5000);
+                }, 2000);
                 return;
             }
 
@@ -374,7 +437,7 @@ function DroneVideoFeed({ droneVideoUrl }) {
                 }
             }
         };
-    }, [canvasRef.current, capturedTrackFromCanvas, localParticipant, ctx.room]);
+    }, [imageLoaded, canvasRef.current, capturedTrackFromCanvas, localParticipant, ctx.room]);
 
     return (
         <div className="h-full flex flex-col">
