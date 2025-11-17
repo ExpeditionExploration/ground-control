@@ -225,8 +225,10 @@ function DroneVideoFeed({ droneVideoUrl }) {
     const ctx = useMediaModuleContext();
     const [imageLoaded, setImageLoaded] = useState(false);
     const renderLoopStarted = useRef(false);
+    const lastFrameTime = useRef<number>(Date.now());
+    const streamHealthCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
-    // Handle image load event
+    // Handle image load event and monitor stream health
     useEffect(() => {
         const img = imgRef.current;
         if (!img) return;
@@ -234,30 +236,65 @@ function DroneVideoFeed({ droneVideoUrl }) {
         const handleLoad = () => {
             console.log("🖼️ Image loaded, dimensions:", img.naturalWidth, "x", img.naturalHeight);
             setImageLoaded(true);
+            lastFrameTime.current = Date.now();
         };
 
         const handleError = (e: Event) => {
             console.error("❌ Image failed to load:", e);
+            setImageLoaded(false);
+            
+            // Attempt to reload after error
+            setTimeout(() => {
+                if (img && droneVideoUrl) {
+                    console.log("🔄 Attempting to reload image stream...");
+                    img.src = droneVideoUrl + '?t=' + Date.now(); // Add timestamp to bypass cache
+                }
+            }, 2000);
         };
 
         // Check if image is already loaded
         if (img.complete && img.naturalWidth > 0) {
             console.log("🖼️ Image already loaded");
             setImageLoaded(true);
+            lastFrameTime.current = Date.now();
         } else {
             img.addEventListener('load', handleLoad);
             img.addEventListener('error', handleError);
         }
 
+        // Monitor stream health - check if frames are still being received
+        streamHealthCheckInterval.current = setInterval(() => {
+            const timeSinceLastFrame = Date.now() - lastFrameTime.current;
+            
+            // If no new frames for 10 seconds, consider stream stalled
+            if (timeSinceLastFrame > 10000 && imageLoaded) {
+                console.warn("⚠️ MJPEG stream appears stalled (no new frames for 10s), attempting reload...");
+                setImageLoaded(false);
+                
+                if (img && droneVideoUrl) {
+                    // Force reload by changing src with timestamp
+                    img.src = droneVideoUrl + '?t=' + Date.now();
+                }
+            }
+        }, 5000); // Check every 5 seconds
+
         return () => {
             img.removeEventListener('load', handleLoad);
             img.removeEventListener('error', handleError);
+            
+            if (streamHealthCheckInterval.current) {
+                clearInterval(streamHealthCheckInterval.current);
+                streamHealthCheckInterval.current = null;
+            }
         };
     }, [droneVideoUrl]);
 
     // Copy image to canvas - start render loop when image is loaded
     useEffect(() => {
         if (!imageLoaded || !imgRef.current || !canvasRef.current) {
+            if (renderLoopStarted.current) {
+                renderLoopStarted.current = false;
+            }
             return;
         }
 
@@ -285,6 +322,9 @@ function DroneVideoFeed({ droneVideoUrl }) {
         console.log("🎨 Canvas initialized with dimensions:", canvas.width, "x", canvas.height);
 
         let animationFrameId: number;
+        let frameCount = 0;
+        let lastLogTime = Date.now();
+        
         const render = () => {
             if (!img || !canvas || !context) return;
             
@@ -292,9 +332,28 @@ function DroneVideoFeed({ droneVideoUrl }) {
             if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
                 canvas.width = img.naturalWidth;
                 canvas.height = img.naturalHeight;
+                console.log("🎨 Canvas dimensions updated:", canvas.width, "x", canvas.height);
             }
 
-            context.drawImage(img, 0, 0, canvas.width, canvas.height);
+            try {
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // Update last frame time to indicate stream is healthy
+                lastFrameTime.current = Date.now();
+                frameCount++;
+                
+                // Log frame rate every 10 seconds for monitoring
+                const now = Date.now();
+                if (now - lastLogTime > 10000) {
+                    const fps = frameCount / ((now - lastLogTime) / 1000);
+                    console.log(`📊 Canvas rendering at ~${fps.toFixed(1)} FPS`);
+                    frameCount = 0;
+                    lastLogTime = now;
+                }
+            } catch (err) {
+                console.error("❌ Error drawing image to canvas:", err);
+            }
+            
             animationFrameId = requestAnimationFrame(render);
         };
 
@@ -305,6 +364,7 @@ function DroneVideoFeed({ droneVideoUrl }) {
                 cancelAnimationFrame(animationFrameId);
             }
             renderLoopStarted.current = false;
+            console.log("🛑 Canvas render loop stopped");
         };
     }, [imageLoaded]);
 
