@@ -1,31 +1,55 @@
 // import { useEvents } from 'src/client/hooks';
 import { ViewProps } from 'src/client/user-interface';
 import { type LightsModuleClient } from '../client';
-import { LightItem, LightColor } from './LightItem';
+import { LightItem } from './LightItem';
+import { LightColor } from '../types';
+import { SetLightRequest, LightStatusUpdate } from '../types';
+import { useEffect, useState } from 'react';
 
 export const LightingGridController: React.FC<
     ViewProps<LightsModuleClient>
 > = ({ module }) => {
+
+    const [irIntensity, setIrIntensity] = useState(0);
+    const [uvIntensity, setUvIntensity] = useState(0);
+    const [visIntensity, setVisIntensity] = useState(0);
+
+    // Subscribe to light status updates
+    useEffect(() => {
+        module.on<LightStatusUpdate>('lightStatus', (data) => {
+            switch (data.command) {
+                case 'infrared-led':
+                    setIrIntensity(data.intensity);
+                    break;
+                case 'ultraviolet-led':
+                    setUvIntensity(data.intensity);
+                    break;
+                case 'visible-led':
+                    setVisIntensity(data.intensity);
+                    break;
+            }
+        });
+    }, []);
 
     /**
      * Set the brightness of a specific light type (vis, ir, uv)
      * @param type The type of light to set ('vis', 'ir', 'uv')
      * @param brightness The brightness level (0-100)
      */
-    const setLight = async (type: 'vis' | 'ir' | 'uv', brightness: number) => {
-        Promise.resolve(module.setLight(type, brightness / 100)).catch((err) => {
+    const setLight = async ({command, intensity}: SetLightRequest) => {
+        Promise.resolve(module.setLight({command, intensity})).catch((err) => {
             console.error('Failed to set light brightness', err);
         });
     };
-    const setBrightnessPartial = (type: 'vis' | 'ir' | 'uv') => {
-        return (brightness: number) => module.setLight(type, brightness);
+    const setBrightnessPartial = (command: 'visible-led' | 'infrared-led' | 'ultraviolet-led') => {
+        return (brightness: number) => module.setLight({command, intensity: brightness});
     }
 
     return (
         <div className="relative h-14 flex flex-col gap-1 justify-center items-end">
-            <LightItem setLight={setBrightnessPartial('vis')} color={LightColor.Yellow} name="Vis" />
-            <LightItem setLight={setBrightnessPartial('ir')} color={LightColor.Red} name="IR" />
-            <LightItem setLight={setBrightnessPartial('uv')} color={LightColor.Blue} name="UV" />
+            <LightItem intensity={visIntensity} setLight={setBrightnessPartial('visible-led')} color={LightColor.Yellow} name="Vis" />
+            <LightItem intensity={irIntensity} setLight={setBrightnessPartial('infrared-led')} color={LightColor.Red} name="IR" />
+            <LightItem intensity={uvIntensity} setLight={setBrightnessPartial('ultraviolet-led')} color={LightColor.Blue} name="UV" />
         </div>
     );
 };

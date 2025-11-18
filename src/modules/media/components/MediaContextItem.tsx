@@ -13,6 +13,7 @@ import { MediaModuleClient } from '../client';
 import { useMediaModuleContext } from '../context/MediaModuleContext';
 import { CarTaxiFront } from 'lucide-react';
 import { identity } from 'mathjs';
+import { Payload } from 'src/connection';
 
 
 export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
@@ -173,21 +174,27 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         if (connectionState !== 'connected' || !ctx.room) return;
         
         // Listen for livekit:publish events from other modules (stats, telemetry)
-        const publishHandler = (data: any) => {
+        const publishHandler = (data: Payload) => {
             if (connectionState !== 'connected') return;
+            if (data.namespace === 'lights' && data.event === 'lightStatus') {
+                ctx.room!.localParticipant.sendText(
+                    JSON.stringify(data), { topic: 'drone-lights-events' }
+                ).catch((error) => {
+                    console.error('Failed to publish text to LiveKit', error);
+                });
+                return;
+            }
             ctx.room!.localParticipant.sendText(
                 JSON.stringify(data), { topic: 'drone-events' }
             ).catch((error) => {
                 console.error('Failed to publish data to LiveKit', error);
             });
         };
-        module.broadcaster.on('livekit:publish', publishHandler);
+        module.broadcaster.on('*:*', publishHandler);
         
         // Register text stream handler once for incoming commands
         if (!textHandlerRegisteredRef.current) {
-            ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
-                console.log('Data stream started from participant:', participant.identity);
-                console.log('Stream information:', reader.info);
+            ctx.room.registerTextStreamHandler('commands', async (reader: TextStreamReader, participant: { identity: string }) => {
                 for await (const chunk of reader) {
                     try {
                         const parsed = JSON.parse(chunk);
@@ -202,7 +209,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         }
         
         return () => {
-            module.broadcaster.off('livekit:publish', publishHandler);
+            module.broadcaster.off('*:*', publishHandler);
         };
     }, [ctx.room, module.broadcaster, connectionState]);
 
@@ -232,6 +239,8 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
     // Handle image load event and monitor stream health
     useEffect(() => {
+        const img = imgRef.current;
+        if (!img) return;
 
         const handleLoad = () => {
             setImageLoaded(true);

@@ -2,15 +2,11 @@ import { Module } from 'src/module';
 import { PCA9685 } from 'openi2c';
 import { ServerModuleDependencies } from 'src/server/server';
 import { Payload } from 'src/connection';
+import { LightStatusUpdate, SetLightRequest } from './types';
 
 export class LightsModuleServer extends Module {
     private pwmModule: PCA9685;
 
-    private brightnessMap: { [key: string]: number } = {
-        vis: 0,
-        ir: 0,
-        uv: 0,
-    };
     private readonly numLightStates = 5;
     private readonly lightCycleMinBlockTimeout = 250; // milliseconds
     private visLightTimer: NodeJS.Timeout | null = null;
@@ -24,85 +20,126 @@ export class LightsModuleServer extends Module {
     }
 
     async onModuleInit(): Promise<void> {
-        if (!this.pwmModule) {
-            if (this.config.modules.lights.server.enabled && this.config.modules.common.pca9685.enabled) {
-                this.pwmModule = new PCA9685(this.config.modules.common.pca9685.i2cBus, parseInt(this.config.modules.common.pca9685.i2cAddr, 16));
-            }
-            this.pwmModule?.init();
-            this.pwmModule?.setFrequency(this.config.modules.common.pca9685.frequency);
-            this.logger.info(`PCA9685 enabled: ${this.config.modules.lights.server.enabled && this.config.modules.common.pca9685.enabled}`);
+        if (!this.pwmModule && this.config.modules.lights.server.enabled && this.config.modules.common.pca9685.enabled) {
+            this.pwmModule = new PCA9685(this.config.modules.common.pca9685.i2cBus, parseInt(this.config.modules.common.pca9685.i2cAddr, 16));
+            this.pwmModule.init();
+            this.pwmModule.setFrequency(this.config.modules.common.pca9685.frequency);
+            this.logger.info('PCA9685 initialized');
+            
+            // Set all lights to 0 brightness on init
+            await this.pwmModule.setDutyCycle(this.config.modules.lights.server.pca9685.leds.vis, 0);
+            await this.pwmModule.setDutyCycle(this.config.modules.lights.server.pca9685.leds.ir, 0);
+            await this.pwmModule.setDutyCycle(this.config.modules.lights.server.pca9685.leds.uv, 0);
+            this.logger.info('All lights initialized to 0% brightness');
         }
-        this.on('setLight', ({type}) => this.cycleLight({ type }));
-        this.broadcaster.on('drone-remote-control:command', (payload: Payload) => {
-            switch (payload.data.command) {
-                case 'infrared-led':
-                    if (this.irLightTimer) {
-                        this.irLightTimer.refresh();
-                        return;
-                    } else {
-                        this.irLightTimer = setTimeout(() => {
-                            this.irLightTimer = null;
-                        }, this.lightCycleMinBlockTimeout);
-                    }
-                    this.cycleLight({ type: 'ir' })
+        this.on('setLight', (data) => {
+            this.logger.debug('Received setLight command:', data);
+            this.setLight(data).catch((err) => {
+                this.logger.error('Error setting light:', err);
+            });
+        });
+        this.broadcaster.on('livekit:data', (payload: Payload) => {
+            this.logger.debug('Received LiveKit data payload:', payload);
+            const command = payload.data.command;
+            const intensity = payload.data.intensity;
+            this.logger.info(`Received light command from LiveKit: ${command} with intensity ${intensity}`);
+            switch (command) {
+                case 'visible-led':
+                    this.setLight({command, intensity})
                     .then(() => {})
                     .catch((err) => { this.logger.error('Error cycling IR light:', err); });
                     break;
-
-                case 'visible-led':
-                    if (this.visLightTimer) {
-                        this.visLightTimer.refresh();
-                        return;
-                    } else {
-                        this.visLightTimer = setTimeout(() => {
-                            this.visLightTimer = null;
-                        }, this.lightCycleMinBlockTimeout);
-                    }
-                    this.cycleLight({ type: 'vis' })
-                    .then(() => {})
-                    .catch((err) => { this.logger.error('Error cycling Vis light:', err); });
-                    break;
-
                 case 'ultraviolet-led':
-                    if (this.uvLightTimer) {
-                        this.uvLightTimer.refresh();
-                        return;
-                    } else {
-                        this.uvLightTimer = setTimeout(() => {
-                            this.uvLightTimer = null;
-                        }, this.lightCycleMinBlockTimeout);
-                    }
-                    this.cycleLight({ type: 'uv' })
+                    this.setLight({command, intensity})
                     .then(() => {})
                     .catch((err) => { this.logger.error('Error cycling UV light:', err); });
+                    break;
+                case 'infrared-led':
+                    this.setLight({command, intensity})
+                    .then(() => {})
+                    .catch((err) => { this.logger.error('Error cycling Visible light:', err); });
+                    break;
+                default:
+                    this.logger.warn(`Unknown light command from LiveKit: ${command}`);
                     break;
             }
         });
     }
 
-    private cycleLight = async (data: { type: 'vis' | 'ir' | 'uv'; brightness?: number }) => {
+    private setLight = async (data: SetLightRequest) => {
+        this.logger.info(`Setting ${data.command} light to brightness ${data.intensity}`);
         let channel: number; // Channel is PWM module output channel.
-        switch (data.type) {
-            case 'vis':
+        switch (data.command) {
+            case 'visible-led':
                 channel = this.config.modules.lights.server.pca9685.leds.vis;
                 break;
-            case 'ir':
+            case 'infrared-led':
                 channel = this.config.modules.lights.server.pca9685.leds.ir;
                 break;
-            case 'uv':
+            case 'ultraviolet-led':
                 channel = this.config.modules.lights.server.pca9685.leds.uv;
                 break;
             default:
-                this.logger.warn(`Unknown light type: ${data.type}`);
+                this.logger.warn(`Unknown light type: ${data.command}`);
                 return;
         }
-        const curBrightness = this.brightnessMap[data.type] || 0;
-        const decrement = 1 / (this.numLightStates - 1);
-        const brightness = curBrightness - decrement < 0 ? 1 : curBrightness - decrement;
-        this.brightnessMap[data.type] = brightness;
-        this.logger.info(`Setting PWM channel ${channel} (${data.type}) to brightness ${brightness}`);
-        if (this.pwmModule) {
-            await this.pwmModule.setDutyCycle(channel, brightness);
-        }
-    };
+        await this.pwmModule.setDutyCycle(channel, data.intensity);
+        // All emits already get published from media module to LiveKit
+        this.emit<LightStatusUpdate>('lightStatus', {
+            command: data.command,
+            intensity: data.intensity,
+        });
+        
+        // Broadcast light state change to remote operators via LiveKit
+        // this.broadcaster.emit('livekit:publish', {
+        //     event: 'lights:state',
+        //     command: data.command,
+        //     intensity: data.intensity
+        // });
+    }
+
+    // private cycleLight = async (data: { type: 'vis' | 'ir' | 'uv'; brightness?: number }) => {
+    //     let channel: number; // Channel is PWM module output channel.
+    //     switch (data.type) {
+    //         case 'vis':
+    //             channel = this.config.modules.lights.server.pca9685.leds.vis;
+    //             break;
+    //         case 'ir':
+    //             channel = this.config.modules.lights.server.pca9685.leds.ir;
+    //             break;
+    //         case 'uv':
+    //             channel = this.config.modules.lights.server.pca9685.leds.uv;
+    //             break;
+    //         default:
+    //             this.logger.warn(`Unknown light type: ${data.type}`);
+    //             return;
+    //     }
+    //     if (data.brightness) {
+    //         await this.pwmModule.setDutyCycle(channel, data.brightness);
+    //         this.emit<LightStatusUpdate>('lightStatus', {
+    //             type: data.type,
+    //             brightness: data.brightness,
+    //         });
+    //         return;
+    //     }
+    //     const curBrightness = this.brightnessMap[data.type] || 0;
+    //     const decrement = 1 / (this.numLightStates - 1);
+    //     const brightness = curBrightness - decrement < 0 ? 1 : curBrightness - decrement;
+    //     this.brightnessMap[data.type] = brightness;
+    //     this.logger.info(`Setting PWM channel ${channel} (${data.type}) to brightness ${brightness}`);
+    //     if (this.pwmModule) {
+    //         await this.pwmModule.setDutyCycle(channel, brightness);
+    //         this.emit<LightStatusUpdate>('lightStatus', {
+    //             type: data.type,
+    //             brightness: brightness,
+    //         });
+    //     }
+        
+    //     // Broadcast light state change to remote operators via LiveKit
+    //     this.broadcaster.emit('livekit:publish', {
+    //         event: 'lights:state',
+    //         type: data.type,
+    //         brightness: brightness
+    //     });
+    // };
 }

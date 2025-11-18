@@ -105,7 +105,7 @@ export class ControlModuleServer extends Module {
         this.emitWrenchContinuously();
 
         this.broadcaster.on('*:*', (data: Payload) => {
-            if (data.namespace !== 'drone-remote-control') {
+            if (data.namespace !== 'livekit') {
                 return;
             }
             const command = data.data.command as keyof typeof this.remoteCommandStates | undefined;

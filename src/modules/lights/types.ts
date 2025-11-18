@@ -1,4 +1,12 @@
 export type SetLightRequest = {
-    brightness: number;
-    type: 'vis' | 'ir' | 'uv';
+    intensity: number;
+    command: 'visible-led' | 'infrared-led' | 'ultraviolet-led';
 };
+export type LightStatusUpdate = SetLightRequest;
+export enum LightColor {
+    Yellow,
+    Violet,
+    Red,
+    Blue,
+}
+

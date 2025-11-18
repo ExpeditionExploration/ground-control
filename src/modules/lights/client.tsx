@@ -19,7 +19,7 @@ export class LightsModuleClient extends Module {
         });
     }
 
-    async setLight(light: 'vis' | 'ir' | 'uv', brightness: number) {
-        this.emit<SetLightRequest>('setLight', { type: light, brightness });
+    async setLight({command, intensity}: SetLightRequest): Promise<void> {
+        this.emit<SetLightRequest>('setLight', { command, intensity });
     }
 }
