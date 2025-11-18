@@ -184,10 +184,18 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
                 });
                 return;
             }
+            if (data.namespace === 'battery' && data.event === 'status') {
+                ctx.room!.localParticipant.sendText(
+                    JSON.stringify(data), { topic: 'drone-battery-events' }
+                ).catch((error) => {
+                    console.error('Failed to publish text to LiveKit', error);
+                });
+                return;
+            }
             ctx.room!.localParticipant.sendText(
                 JSON.stringify(data), { topic: 'drone-events' }
             ).catch((error) => {
-                console.error('Failed to publish data to LiveKit', error);
+                console.error('Failed to publish text to LiveKit', error);
             });
         };
         module.broadcaster.on('*:*', publishHandler);
