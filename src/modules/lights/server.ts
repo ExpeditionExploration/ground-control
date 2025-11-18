@@ -6,12 +6,6 @@ import { LightStatusUpdate, SetLightRequest } from './types';
 
 export class LightsModuleServer extends Module {
     private pwmModule: PCA9685;
-
-    private readonly numLightStates = 5;
-    private readonly lightCycleMinBlockTimeout = 250; // milliseconds
-    private visLightTimer: NodeJS.Timeout | null = null;
-    private irLightTimer: NodeJS.Timeout | null = null;
-    private uvLightTimer: NodeJS.Timeout | null = null;
     private deps: ServerModuleDependencies;
 
     constructor(deps: ServerModuleDependencies) {
@@ -47,17 +41,17 @@ export class LightsModuleServer extends Module {
                 case 'visible-led':
                     this.setLight({command, intensity})
                     .then(() => {})
-                    .catch((err) => { this.logger.error('Error cycling IR light:', err); });
+                    .catch((err) => { this.logger.error('Error setting visible light:', err); });
                     break;
                 case 'ultraviolet-led':
                     this.setLight({command, intensity})
                     .then(() => {})
-                    .catch((err) => { this.logger.error('Error cycling UV light:', err); });
+                    .catch((err) => { this.logger.error('Error setting ultraviolet light:', err); });
                     break;
                 case 'infrared-led':
                     this.setLight({command, intensity})
                     .then(() => {})
-                    .catch((err) => { this.logger.error('Error cycling Visible light:', err); });
+                    .catch((err) => { this.logger.error('Error setting infrared light:', err); });
                     break;
                 default:
                     this.logger.warn(`Unknown light command from LiveKit: ${command}`);
@@ -67,6 +61,11 @@ export class LightsModuleServer extends Module {
     }
 
     private setLight = async (data: SetLightRequest) => {
+        if (!this.pwmModule) {
+            this.logger.warn('PWM module not initialized, cannot set light');
+            return;
+        }
+
         this.logger.info(`Setting ${data.command} light to brightness ${data.intensity}`);
         let channel: number; // Channel is PWM module output channel.
         switch (data.command) {
@@ -84,6 +83,7 @@ export class LightsModuleServer extends Module {
                 return;
         }
         await this.pwmModule.setDutyCycle(channel, data.intensity);
+        
         // All emits already get published from media module to LiveKit
         this.emit<LightStatusUpdate>('lightStatus', {
             command: data.command,
@@ -142,4 +142,5 @@ export class LightsModuleServer extends Module {
     //         brightness: brightness
     //     });
     // };
+        
 }
