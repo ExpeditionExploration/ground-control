@@ -170,28 +170,29 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
     // Register data publisher and text stream handler once the room exists.
     const textHandlerRegisteredRef = useRef(false);
     useEffect(() => {
-        if (connectionState !== 'connected') return;
-        // Publish outgoing broadcaster events
-        module.broadcaster.on('*:*', (data) => {
+        if (connectionState !== 'connected' || !ctx.room) return;
+        
+        // Listen for livekit:publish events from other modules (stats, telemetry)
+        const publishHandler = (data: any) => {
             if (connectionState !== 'connected') return;
             ctx.room!.localParticipant.sendText(
                 JSON.stringify(data), { topic: 'drone-events' }
             ).catch((error) => {
                 console.error('Failed to publish data to LiveKit', error);
             });
-        });
-        // Register text stream handler once
+        };
+        module.broadcaster.on('livekit:publish', publishHandler);
+        
+        // Register text stream handler once for incoming commands
         if (!textHandlerRegisteredRef.current) {
-            ctx.room.registerTextStreamHandler('commands', async (reader: TextStreamReader, participant: { identity: string }) => {
+            ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
+                console.log('Data stream started from participant:', participant.identity);
+                console.log('Stream information:', reader.info);
                 for await (const chunk of reader) {
                     try {
                         const parsed = JSON.parse(chunk);
-                        if (parsed.command) {
-                            module.broadcaster.emit('drone-remote-control:command', {
-                                ...parsed, 
-                                identity: participant.identity,
-                            });
-                        }
+                        // Emit to broadcaster for other modules (control) to handle
+                        module.broadcaster.emit('livekit:data', parsed);
                     } catch (e) {
                         console.error('Failed to parse data message', e);
                     }
@@ -199,6 +200,10 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             });
             textHandlerRegisteredRef.current = true;
         }
+        
+        return () => {
+            module.broadcaster.off('livekit:publish', publishHandler);
+        };
     }, [ctx.room, module.broadcaster, connectionState]);
 
     return output;
