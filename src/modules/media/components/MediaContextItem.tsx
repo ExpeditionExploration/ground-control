@@ -168,41 +168,44 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
 
     // Register data publisher and text stream handler once the room exists.
     const textHandlerRegisteredRef = useRef(false);
-    // useEffect(() => {
-    //     if (connectionState !== 'connected') return;
-    //     // Publish outgoing broadcaster events
-    //     module.broadcaster.on('*:*', (data) => {
-    //         if (connectionState !== 'connected') return;
-    //         const encoder = new TextEncoder();
-    //         ctx.room!.localParticipant.publishData(
-    //             encoder.encode(JSON.stringify(data))
-    //         ).catch((error) => {
-    //             console.error('Failed to publish data to LiveKit', error);
-    //         });
-    //     });
-    //     // Register text stream handler once
-    //     if (!textHandlerRegisteredRef.current) {
-    //         ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
-    //             console.log('Data stream started from participant:', participant.identity);
-    //             console.log('Stream information:', reader.info);
-    //             for await (const chunk of reader) {
-    //                 try {
-    //                     const parsed = JSON.parse(chunk);
-    //                     const cmd = parsed?.droneControl?.command;
-    //                     if (cmd) {
-    //                         module.broadcaster.emit('drone-remote-control:command', {
-    //                             command: cmd,
-    //                             identity: participant.identity,
-    //                         });
-    //                     }
-    //                 } catch (e) {
-    //                     console.error('Failed to parse data message', e);
-    //                 }
-    //             }
-    //         });
-    //         textHandlerRegisteredRef.current = true;
-    //     }
-    // }, [ctx.room, module.broadcaster, connectionState]);
+    useEffect(() => {
+        if (connectionState !== 'connected' || !ctx.room) return;
+        
+        // Listen for livekit:publish events from other modules (stats, telemetry)
+        const publishHandler = (data: any) => {
+            if (connectionState !== 'connected') return;
+            const encoder = new TextEncoder();
+            ctx.room!.localParticipant.publishData(
+                encoder.encode(JSON.stringify(data)),
+                { reliable: true }
+            ).catch((error) => {
+                console.error('Failed to publish data to LiveKit', error);
+            });
+        };
+        module.broadcaster.on('livekit:publish', publishHandler);
+        
+        // Register text stream handler once for incoming commands
+        if (!textHandlerRegisteredRef.current) {
+            ctx.room.registerTextStreamHandler('drone-control', async (reader: TextStreamReader, participant: { identity: string }) => {
+                console.log('Data stream started from participant:', participant.identity);
+                console.log('Stream information:', reader.info);
+                for await (const chunk of reader) {
+                    try {
+                        const parsed = JSON.parse(chunk);
+                        // Emit to broadcaster for other modules (control) to handle
+                        module.broadcaster.emit('livekit:data', parsed);
+                    } catch (e) {
+                        console.error('Failed to parse data message', e);
+                    }
+                }
+            });
+            textHandlerRegisteredRef.current = true;
+        }
+        
+        return () => {
+            module.broadcaster.off('livekit:publish', publishHandler);
+        };
+    }, [ctx.room, module.broadcaster, connectionState]);
 
     return output;
 };
