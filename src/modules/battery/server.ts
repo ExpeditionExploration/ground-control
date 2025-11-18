@@ -50,7 +50,7 @@ export class BatteryModuleServer extends Module {
         );
         this.simulateBatteryVoltageCheck();
         if (this.config.modules.battery.server.simulated) {
-            this.logger.info('Battery module is running in simulated mode.');
+            //this.logger.info('Battery module is running in simulated mode.');
             return;
         }
         this.currentSensor = new INA226CurrentSensor(

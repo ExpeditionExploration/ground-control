@@ -12,6 +12,7 @@ import { ViewProps } from 'src/client/user-interface';
 import { MediaModuleClient } from '../client';
 import { useMediaModuleContext } from '../context/MediaModuleContext';
 import { CarTaxiFront } from 'lucide-react';
+import { identity } from 'mathjs';
 
 
 export const MediaContextItem: React.FC<ViewProps<MediaModuleClient>> = ({ module }) => (
@@ -26,7 +27,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
     ctx.droneId = module.config.modules.common.droneId;
     ctx.macAddress = module.config.modules.common.macAddress;
     ctx.missionId = null;
-    console.log("module:", module.config.modules.common);
+    module.logger.debug("module:", module.config.modules.common);
 
     // Ensure a Room instance exists synchronously so children using RoomContext have a value immediately.
     if (!ctx.room) {
@@ -39,15 +40,15 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
     const [droneMjpegStreamUrl, setDroneMjpegStreamUrl] = useState<string | null>(null);
 
-    console.log(`!ctx.livekitUrl || !(ctx.droneId || ctx.macAddress) || !ctx.platformUrl`)
-    console.log(`livekitUrl: ${ctx.livekitUrl}, droneId: ${ctx.droneId}, macAddress: ${ctx.macAddress}, platformUrl: ${ctx.platformUrl}`)
+    module.logger.debug(`!ctx.livekitUrl || !(ctx.droneId || ctx.macAddress) || !ctx.platformUrl`)
+    module.logger.debug(`livekitUrl: ${ctx.livekitUrl}, droneId: ${ctx.droneId}, macAddress: ${ctx.macAddress}, platformUrl: ${ctx.platformUrl}`)
     if (!ctx.livekitUrl || !(ctx.droneId || ctx.macAddress) || !ctx.platformUrl) {
         return <div className="p-4 text-red-500">Media Module not configured properly. Missing livekitUrl, droneId, platformUrl, or macAddress.</div>;
     }
 
     async function connectDrone() {
         setConnectionState('connecting');
-        console.log("Connecting.");
+        module.logger.debug("Connecting.");
         // 1. Request token
         const tokenRes = await fetch(`${ctx.platformUrl}/api/ground-operator/token`, {
             method: 'POST',
@@ -56,20 +57,20 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         });
         let token, roomName, identity;
         const tokenJson = await tokenRes.json();
-        console.log("tokenRes:", tokenJson);
+        module.logger.debug("tokenRes:", tokenJson);
         try {
             const { token: t, room: r, identity: i } = tokenJson;
             token = t;
             roomName = r;
             identity = i;
-            console.log("Received token response:", { token, roomName, identity });
+            module.logger.debug("Received token response:", { token, roomName, identity });
         } catch (e) {
             console.error("Failed to parse token response", e);
             setConnectionState('error');
             return;
         }
 
-        console.log("Connecting to LiveKit room:", { livekitUrl: ctx.livekitUrl, roomName, identity });
+        module.logger.debug("Connecting to LiveKit room:", { livekitUrl: ctx.livekitUrl, roomName, identity });
         // 2. Connect to LiveKit (Room already created synchronously above)
         try {
             if (!ctx.room) {
@@ -82,7 +83,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             return;
         }
 
-        console.log("Announcing connection");
+        module.logger.debug("Announcing connection");
         // 3. Announce connection
         const announceRes = await fetch(`${ctx.platformUrl}/api/ground-operator/announce`, {
             method: 'POST',
@@ -106,7 +107,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
             });
         }, 20000);
 
-        console.log("Connected.");
+        module.logger.debug("Connected.");
         setConnectionState('connected');
     };
     // 5. Handle disconnect
@@ -137,7 +138,7 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         // Access optional fields defensively (not part of typed Config interface yet)
         const portSegment = (module.config as any).droneStreamPort ?? '1984';
         const pathSegment = (module.config as any).droneStreamPath ?? 'api/stream.mjpeg?src=camera1';
-        console.log("Setting drone MJPEG stream URL to:", `https://${hostname}:${portSegment}/${pathSegment}`);
+        module.logger.debug("Setting drone MJPEG stream URL to:", `https://${hostname}:${portSegment}/${pathSegment}`);
         setDroneMjpegStreamUrl(`https://${hostname}:${portSegment}/${pathSegment}`);
     }, []);
 
@@ -237,7 +238,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
         if (!img) return;
 
         const handleLoad = () => {
-            console.log("🖼️ Image loaded, dimensions:", img.naturalWidth, "x", img.naturalHeight);
             setImageLoaded(true);
             lastFrameTime.current = Date.now();
         };
@@ -249,7 +249,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
             // Attempt to reload after error
             setTimeout(() => {
                 if (img && droneVideoUrl) {
-                    console.log("🔄 Attempting to reload image stream...");
                     img.src = droneVideoUrl + '?t=' + Date.now(); // Add timestamp to bypass cache
                 }
             }, 2000);
@@ -257,7 +256,7 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
         // Check if image is already loaded
         if (img.complete && img.naturalWidth > 0) {
-            console.log("🖼️ Image already loaded");
+            module.logger.debug("🖼️ Image already loaded");
             setImageLoaded(true);
             lastFrameTime.current = Date.now();
         } else {
@@ -310,7 +309,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
         const context = canvas.getContext('2d');
         
         if (!context) {
-            console.error("❌ Failed to get canvas 2D context");
             return;
         }
 
@@ -320,21 +318,17 @@ function DroneVideoFeed({ droneVideoUrl }) {
         // Wait for valid dimensions before starting
         const waitForDimensions = () => {
             if (!img.naturalWidth || !img.naturalHeight) {
-                console.log("⏳ Waiting for image dimensions...");
                 dimensionCheckTimeout = setTimeout(waitForDimensions, 50);
                 return;
             }
 
             // Now we have valid dimensions, start the render loop
             renderLoopStarted.current = true;
-            console.log("🎨 Starting canvas render loop");
-
             img.crossOrigin = "anonymous";
 
             // Set initial canvas dimensions from image
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
-            console.log("🎨 Canvas initialized with dimensions:", canvas.width, "x", canvas.height);
 
             let frameCount = 0;
             let lastLogTime = Date.now();
@@ -347,7 +341,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
                     if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
                         canvas.width = img.naturalWidth;
                         canvas.height = img.naturalHeight;
-                        console.log("🎨 Canvas dimensions updated:", canvas.width, "x", canvas.height);
                     }
                 }
 
@@ -368,7 +361,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
                     const now = Date.now();
                     if (now - lastLogTime > 10000) {
                         const fps = frameCount / ((now - lastLogTime) / 1000);
-                        console.log(`📊 Canvas rendering at ~${fps.toFixed(1)} FPS`);
                         frameCount = 0;
                         lastLogTime = now;
                     }
@@ -397,7 +389,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
             }
             
             renderLoopStarted.current = false;
-            console.log("🛑 Canvas render loop stopped");
         };
     }, [imageLoaded]);
 
@@ -407,7 +398,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
     useEffect(() => {
         // Don't try to publish until image is loaded and canvas is rendering
         if (!imageLoaded) {
-            console.log("⏳ Waiting for image to load before publishing track");
             return;
         }
 
@@ -416,18 +406,14 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
         const publishIt = () => {
             if (!imgRef.current || !canvasRef.current) {
-                console.log("⏳ Canvas or image not ready yet");
                 return;
             }
             if (hasInitialised.current) return;
             if (!localParticipant) {
-                console.log("⏳ Local participant not ready yet");
                 return;
             }
 
             hasInitialised.current = true;
-            console.log("🎬 Starting canvas track publishing process");
-            console.log("📊 Room connection state:", ctx.room.state);
 
             // Validate canvas has content before capturing
             const [sizex, sizey] = [canvasRef.current.width, canvasRef.current.height];
@@ -440,14 +426,11 @@ function DroneVideoFeed({ droneVideoUrl }) {
                 return;
             }
 
-            console.log(`✅ Canvas dimensions: ${sizex}x${sizey}`);
-
             // Add small delay to ensure canvas has rendered at least one frame
             setTimeout(() => {
                 if (cleanupCalled) return;
 
                 const mediaTrack = canvasRef.current?.captureStream(30).getVideoTracks()[0];
-                console.log("📹 Captured mediaTrack from canvas:", mediaTrack);
                 
                 if (!mediaTrack) {
                     console.error("❌ Failed to capture track from canvas. Scheduling retry in 5s.");
@@ -460,12 +443,11 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
                 // Wrap raw MediaStreamTrack as LocalVideoTrack
                 localVideo = new LocalVideoTrack(mediaTrack);
-                console.log("🎥 Created LocalVideoTrack from canvas stream");
 
                 const publishTrack = () => {
                     if (cleanupCalled || !localVideo) return;
 
-                    console.log("📤 Publishing track to LiveKit...");
+                    console.debug("📤 Publishing track to LiveKit...");
                     localParticipant
                         .publishTrack(localVideo, {
                             name: 'drone:camera',
@@ -474,7 +456,7 @@ function DroneVideoFeed({ droneVideoUrl }) {
                         .then((pub) => {
                             if (cleanupCalled) return;
                             publicationRef.current = pub;
-                            console.log("✅ Canvas track published successfully!", {
+                            console.debug("✅ Canvas track published successfully!", {
                                 trackSid: pub.trackSid,
                                 trackName: pub.trackName,
                                 source: pub.source
@@ -492,12 +474,9 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
                 // Check if room is already connected
                 if (ctx.room.state === 'connected') {
-                    console.log("✅ Room already connected, publishing immediately");
                     publishTrack();
                 } else {
-                    console.log("⏳ Room not connected yet, waiting for connection...");
                     ctx.room.once('connected', () => {
-                        console.log("✅ Room connected event fired, publishing track");
                         publishTrack();
                     });
                 }
@@ -508,15 +487,12 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
         return () => {
             cleanupCalled = true;
-            console.log("🧹 Cleaning up canvas track publication");
             
             // Unpublish by publication SID to ensure proper matching
             if (publicationRef.current) {
                 try {
                     localParticipant.unpublishTrack(publicationRef.current.track, true);
-                    console.log("✅ Track unpublished successfully");
                 } catch (e) {
-                    console.warn('⚠️ Failed to unpublish canvas track:', e);
                 }
                 publicationRef.current = null;
             }
@@ -524,7 +500,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
             if (localVideo) {
                 try {
                     localVideo.stop();
-                    console.log("✅ Local video track stopped");
                 } catch (e) {
                     console.warn('⚠️ Failed to stop local video track:', e);
                 }

@@ -8,28 +8,43 @@ import { cross, subtract, pi, sin, cos, multiply, pinv, transpose, round } from 
 import { PCA9685 } from 'openi2c';
 import { Payload } from 'src/connection';
 
+type MotorConfig = {
+    gpioOutPWM: number;
+    gpioOutReverse: number;
+    gpioOutStop?: number;
+    invertPWM?: boolean;
+    invertRotationDirection?: boolean;
+    invertPWMWithDirection?: boolean;
+    scale?: number;
+    position?: number[];
+    orientation?: number[];
+};
+
 const isProd = false; // process.env.NODE_ENV === 'production';
 export class ControlModuleServer extends Module {
     private pwmModule: PCA9685;
     private physicalMotors: { [key: string]: MotorState } = {};
     private virtualMotors: { [key: string]: MotorState } = {};
     private virtualToPhysical: { [physicalKey: string]: { [virtualKey: string]: number } } = {};
+    private wrenchInterval: NodeJS.Timeout | null = null;
 
+    private previousGroundControlInput: number = 0;
     private keyDownTimers: Record<string, NodeJS.Timeout> = {};
     private remoteCommandStates: Record<string, boolean> = {
-        roll_left: false,
-        roll_right: false,
-        pitch_up: false,
-        pitch_down: false,
-        yaw_left: false,
-        yaw_right: false,
-        surge: false,
-        surge_back: false,
+        'pitch_up': false,
+        'pitch_down': false,
+        'roll_left': false,
+        'roll_right': false,
+        'yaw_left': false,
+        'yaw_right': false,
+        'surge_forward': false,
+        'surge_back': false,
+        'heave_up': false,
+        'heave_down': false,
     };
     private remoteWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
     private localWrench: Wrench = { heave: 0, sway: 0, surge: 0, yaw: 0, pitch: 0, roll: 0 };
-    private lastLocalInputTs = 0;
-    private localInputTimeoutMs = 200;
+    private groundControlInputTimeoutMs = 1000;
 
     constructor(deps: ServerModuleDependencies) {
         super(deps);
@@ -44,7 +59,8 @@ export class ControlModuleServer extends Module {
             this.pwmModule?.setFrequency(this.config.modules.common.pca9685.frequency);
             this.logger.info(`PCA9685 enabled: ${this.config.modules.control.server.enabled && this.config.modules.common.pca9685.enabled}`);
         }
-        for (const [name, motor] of Object.entries(this.config.modules.common.motors)) {
+        const motors = this.config.modules.common.motors as Record<string, MotorConfig>;
+        for (const [name, motor] of Object.entries(motors)) {
             this.physicalMotors[name] = new ECMMotorState({
                 name: `${name} Motor`,
                 logger: this.logger,
@@ -86,34 +102,34 @@ export class ControlModuleServer extends Module {
             }),
         };
         this.setupMotors();
-        // this.emitWrenchContinuously();
+        this.emitWrenchContinuously();
 
-        if (false) {
         this.broadcaster.on('*:*', (data: Payload) => {
             if (data.namespace !== 'drone-remote-control') {
                 return;
             }
-            const command = data.data?.command as keyof typeof this.remoteCommandStates | undefined;
+            const command = data.data.command as keyof typeof this.remoteCommandStates | undefined;
             if (!command || !(command in this.remoteCommandStates)) {
                 return;
             }
             this.applyRemoteCommand(command, true);
             if (this.keyDownTimers[command]) {
                 clearTimeout(this.keyDownTimers[command]);
+                this.keyDownTimers[command] = null;
             }
             this.keyDownTimers[command] = setTimeout(() => {
+                this.logger.info(`Remote command keyup timeout for command: ${command}`);
                 this.applyRemoteCommand(command, false);
-            }, 100);
+            }, 60);
         });
-        }
     }
 
     private applyRemoteCommand(command: keyof typeof this.remoteCommandStates, active: boolean) {
         this.remoteCommandStates[command] = active;
         this.remoteWrench = {
-            heave: 0,
+            heave: this.computeAxis(this.remoteCommandStates.heave_down, this.remoteCommandStates.heave_up),
             sway: 0,
-            surge: this.computeAxis(this.remoteCommandStates.surge_back, this.remoteCommandStates.surge),
+            surge: this.computeAxis(this.remoteCommandStates.surge_back, this.remoteCommandStates.surge_forward),
             yaw: this.computeAxis(this.remoteCommandStates.yaw_left, this.remoteCommandStates.yaw_right),
             pitch: this.computeAxis(this.remoteCommandStates.pitch_down, this.remoteCommandStates.pitch_up),
             roll: this.computeAxis(this.remoteCommandStates.roll_left, this.remoteCommandStates.roll_right),
@@ -128,12 +144,15 @@ export class ControlModuleServer extends Module {
     }
 
     emitWrenchContinuously() {
-        setInterval(() => {
+        if (this.wrenchInterval) {
+            return;
+        }
+        this.wrenchInterval = setInterval(() => {
             const now = Date.now();
-            const useLocal = now - this.lastLocalInputTs < this.localInputTimeoutMs;
+            const useLocal = now - this.previousGroundControlInput < this.groundControlInputTimeoutMs;
             const source = useLocal ? this.localWrench : this.remoteWrench;
             this.applyWrenchToMotors(source);
-        }, 250);
+        }, 100);
     }
 
     async setupMotors() {
@@ -172,7 +191,7 @@ export class ControlModuleServer extends Module {
             ]);
         }
         mappingMatrix = transpose(mappingMatrix);
-        this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
+        // this.logger.info(`Mapping matrix: ${JSON.stringify(round(mappingMatrix, 2))}`);
         mappingMatrix = [ // Simplify 5-motor configuration (for initial testing)
             [1, 1, -1, -1, 0],
             [0, 0, 0, 0, 0],
@@ -206,7 +225,7 @@ export class ControlModuleServer extends Module {
         }
 
         this.on('wrenchTarget', (wrench: Wrench) => {
-            this.lastLocalInputTs = Date.now();
+            this.previousGroundControlInput = Date.now();
             this.localWrench = { ...wrench };
             this.applyWrenchToMotors(wrench);
         });
@@ -220,7 +239,7 @@ export class ControlModuleServer extends Module {
         yaw.setPower(wrench.yaw);
         pitch.setPower(wrench.pitch);
         roll.setPower(wrench.roll);
-        this.logger.info(`Virtual power set to [${wrench.heave}, ${wrench.sway}, ${wrench.surge}, ${wrench.yaw}, ${wrench.pitch}, ${wrench.roll}]`);
+        // this.logger.info(`Virtual power set to [${wrench.heave}, ${wrench.sway}, ${wrench.surge}, ${wrench.yaw}, ${wrench.pitch}, ${wrench.roll}]`);
 
         for (const [physicalKey, terms] of Object.entries(this.virtualToPhysical)) {
             let sum = 0;
