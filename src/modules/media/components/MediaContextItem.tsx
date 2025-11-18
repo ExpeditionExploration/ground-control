@@ -174,9 +174,8 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
         // Publish outgoing broadcaster events
         module.broadcaster.on('*:*', (data) => {
             if (connectionState !== 'connected') return;
-            const encoder = new TextEncoder();
-            ctx.room!.localParticipant.publishData(
-                encoder.encode(JSON.stringify(data))
+            ctx.room!.localParticipant.sendText(
+                JSON.stringify(data), { topic: 'drone-events' }
             ).catch((error) => {
                 console.error('Failed to publish data to LiveKit', error);
             });
@@ -228,8 +227,6 @@ function DroneVideoFeed({ droneVideoUrl }) {
 
     // Handle image load event and monitor stream health
     useEffect(() => {
-        const img = imgRef.current;
-        if (!img) return;
 
         const handleLoad = () => {
             setImageLoaded(true);
@@ -445,7 +442,7 @@ function DroneVideoFeed({ droneVideoUrl }) {
                     localParticipant
                         .publishTrack(localVideo, {
                             name: 'drone:camera',
-                            source: Track.Source.Camera,
+                            source: Track.Source.Unknown,
                         })
                         .then((pub) => {
                             if (cleanupCalled) return;

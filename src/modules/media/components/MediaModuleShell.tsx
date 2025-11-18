@@ -35,7 +35,7 @@ export const MediaModuleShell: React.FC<ViewProps<MediaModuleClient>> = ({ modul
                 <MediaContextItem module={module} />
                 {takePictureTarget && createPortal(<TakePictureButton module={module} />, takePictureTarget)}
                 {recordTarget && createPortal(<RecordButton module={module} />, recordTarget)}
-                {/*webCamTarget && createPortal(<WebCam />, webCamTarget)*/}
+                {webCamTarget && createPortal(<WebCam />, webCamTarget)}
             </RoomContext.Provider>
         </MediaModuleProvider>
     );

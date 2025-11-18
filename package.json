@@ -37,6 +37,7 @@
         "forever": "^4.0.3",
         "gstwebrtc-api": "github:ExpeditionExploration/gstwebrtc-api",
         "json5": "^2.2.3",
+        "leaflet": "^1.9.4",
         "livekit-client": "^2.15.10",
         "lucide-react": "^0.511.0",
         "mathjs": "^14.7.0",
