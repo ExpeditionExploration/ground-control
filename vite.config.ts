@@ -32,8 +32,8 @@ export default defineConfig({
     server: {
         host: 'rpi-79582.local',
         https: {
-            key: fs.readFileSync('ssl/server.key'),
-            cert: fs.readFileSync('ssl/server.crt'),
+            key: fs.readFileSync('ssl/rpi-79582.key'),
+            cert: fs.readFileSync('ssl/rpi-79582.crt'),
             // passphrase: 'your-passphrase',
         },
         cors: {

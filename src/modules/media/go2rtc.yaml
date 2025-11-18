@@ -5,5 +5,5 @@ api:
   origin: "*"
   listen: ""
   tls_listen: ":1984"
-  tls_cert: ssl/server.crt
-  tls_key: ssl/server.key
+  tls_cert: ssl/rpi-79582.crt
+  tls_key: ssl/rpi-79582.key

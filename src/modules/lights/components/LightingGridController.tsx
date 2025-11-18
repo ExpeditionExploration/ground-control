@@ -31,16 +31,6 @@ export const LightingGridController: React.FC<
         });
     }, []);
 
-    /**
-     * Set the brightness of a specific light type (vis, ir, uv)
-     * @param type The type of light to set ('vis', 'ir', 'uv')
-     * @param brightness The brightness level (0-100)
-     */
-    const setLight = async ({command, intensity}: SetLightRequest) => {
-        Promise.resolve(module.setLight({command, intensity})).catch((err) => {
-            console.error('Failed to set light brightness', err);
-        });
-    };
     const setBrightnessPartial = (command: 'visible-led' | 'infrared-led' | 'ultraviolet-led') => {
         return (brightness: number) => module.setLight({command, intensity: brightness});
     }

@@ -13,8 +13,8 @@
         "macAddress": "2c:cf:67:db:b9:15",
 
         "websocket": { // Only SSL now
-            "cert": "ssl/server.crt",
-            "key": "ssl/server.key"
+            "cert": "ssl/rpi-79582.crt",
+            "key": "ssl/rpi-79582.key"
         },
         "drone": {
             "centerOfMass": [0, -1.3901, -9.9135], // [sway/pitch, heave/yaw, surge/roll] in 3D Viewer
