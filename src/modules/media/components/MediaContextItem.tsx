@@ -192,6 +192,15 @@ const MediaContextItemInternal: React.FC<ViewProps<MediaModuleClient>> = ({ modu
                 });
                 return;
             }
+            if (data.namespace === 'stats' && data.event === 'stats') {
+                console.debug("Publishing stats data to LiveKit:", data);
+                ctx.room!.localParticipant.sendText(
+                    JSON.stringify(data), { topic: 'drone-stats-events' }
+                ).catch((error) => {
+                    console.error('Failed to publish text to LiveKit', error);
+                });
+                return;
+            }
             ctx.room!.localParticipant.sendText(
                 JSON.stringify(data), { topic: 'drone-events' }
             ).catch((error) => {
